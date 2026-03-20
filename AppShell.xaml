@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="AIDatabaseAnalyzer.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:AIDatabaseAnalyzer"
+    Shell.FlyoutBehavior="Disabled"
+    Shell.NavBarIsVisible="False"
+    BackgroundColor="#FFFFFF">
+    <TabBar  
+            Shell.TabBarTitleColor="#2563EB" 
+            Shell.TabBarUnselectedColor="#64748B"
+            Shell.TabBarBackgroundColor="#FFFFFF">
+
+        <Tab Title="Analyzer" Icon="analyzer_icon.png">
+            <ShellContent ContentTemplate="{DataTemplate local:MainPage}" />
+        </Tab>
+
+        <Tab Title="Settings" Icon="settings_icon.png">
+            <ShellContent ContentTemplate="{DataTemplate local:SettingsPage}" />
+        </Tab>
+    </TabBar>
+</Shell>

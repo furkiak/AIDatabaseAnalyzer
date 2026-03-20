@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="AIDatabaseAnalyzer.VisualizerPage"
+             BackgroundColor="White"
+             Shell.PresentationMode="ModalAnimated">
+    <Grid RowDefinitions="Auto, *">
+        <Grid Grid.Row="0" BackgroundColor="#0F172A" Padding="15" ColumnDefinitions="Auto, *">
+            <Button Grid.Column="0" Text="✕ Close" Command="{Binding CloseCommand}" 
+                    BackgroundColor="#EF4444" TextColor="White" HeightRequest="32" CornerRadius="6" Padding="10,0" />
+            <Label Grid.Column="1" Text="Database ER Diagram" VerticalOptions="Center" 
+                   TextColor="White" FontAttributes="Bold" Margin="15,0,0,0" />
+        </Grid>
+
+        <WebView Grid.Row="1" 
+                 Navigating="OnWebViewNavigating" 
+                 HorizontalOptions="Fill" 
+                 VerticalOptions="Fill">
+            <WebView.Source>
+                <HtmlWebViewSource Html="{Binding HtmlSource}" />
+            </WebView.Source>
+        </WebView>
+    </Grid>
+</ContentPage>

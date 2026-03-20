@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="AIDatabaseAnalyzer.SettingsPage"
+             BackgroundColor="#F4F6F8">
+
+    <ScrollView>
+        <Grid>
+            <VerticalStackLayout Padding="20,40,20,40" Spacing="20" WidthRequest="650" HorizontalOptions="Center" VerticalOptions="Start">
+
+                <Label Text="System Preferences" FontSize="26" FontAttributes="Bold" TextColor="#0F172A" HorizontalOptions="Center" Margin="0,0,0,10" />
+
+                <Border Stroke="#E2E8F0" StrokeThickness="1" BackgroundColor="White" Padding="24">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="15">
+                        <Label Text="Select AI Engine" FontSize="16" FontAttributes="Bold" TextColor="#0F172A"/>
+                        <HorizontalStackLayout Spacing="30">
+                            <RadioButton Content="Local (Ollama)" IsChecked="{Binding IsOllamaSelected}" TextColor="#334155" />
+                            <RadioButton Content="Cloud (Gemini API)" IsChecked="{Binding IsGeminiSelected}" TextColor="#334155" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Stroke="#E2E8F0" StrokeThickness="1" BackgroundColor="White" Padding="24" IsVisible="{Binding IsOllamaConfigVisible}">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="15">
+                        <Label Text="Ollama Configuration" FontSize="16" FontAttributes="Bold" TextColor="#0F172A"/>
+
+                        <Label Text="OLLAMA API URL" FontSize="11" FontAttributes="Bold" TextColor="#64748B" Margin="0,5,0,-5" />
+                        <Entry Text="{Binding OllamaUrl}" BackgroundColor="#F8FAFC" TextColor="#0F172A" />
+
+                        <Label Text="MODEL NAME" FontSize="11" FontAttributes="Bold" TextColor="#64748B" Margin="0,5,0,-5" />
+                        <Entry Text="{Binding OllamaModel}" BackgroundColor="#F8FAFC" TextColor="#0F172A" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Stroke="#E2E8F0" StrokeThickness="1" BackgroundColor="White" Padding="24" IsVisible="{Binding IsGeminiConfigVisible}">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="15">
+                        <Label Text="Gemini Configuration" FontSize="16" FontAttributes="Bold" TextColor="#0F172A"/>
+
+                        <Label Text="API KEY" FontSize="11" FontAttributes="Bold" TextColor="#64748B" Margin="0,5,0,-5" />
+                        <Entry Text="{Binding GeminiApiKey}" IsPassword="True" BackgroundColor="#F8FAFC" TextColor="#0F172A" />
+
+                        <Label Text="MODEL NAME" FontSize="11" FontAttributes="Bold" TextColor="#64748B" Margin="0,5,0,-5" />
+                        <Entry Text="{Binding GeminiModel}" BackgroundColor="#F8FAFC" TextColor="#0F172A" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Grid ColumnDefinitions="Auto, *, *" ColumnSpacing="15" Margin="0,10,0,0">
+                    <ActivityIndicator Grid.Column="0" IsRunning="{Binding IsTesting}" IsVisible="{Binding IsTesting}" Color="#2563EB" VerticalOptions="Center" Margin="0,0,10,0"/>
+                    <Button Grid.Column="1" Text="Test Connection" Command="{Binding TestConnectionCommand}" BackgroundColor="#F1F5F9" TextColor="#475569" CornerRadius="8" HeightRequest="42" FontAttributes="Bold" />
+                    <Button Grid.Column="2" Text="Save Settings" Command="{Binding SaveSettingsCommand}" BackgroundColor="#2563EB" TextColor="White" CornerRadius="8" HeightRequest="42" FontAttributes="Bold" />
+                </Grid>
+
+            </VerticalStackLayout>
+        </Grid>
+    </ScrollView>
+</ContentPage>
