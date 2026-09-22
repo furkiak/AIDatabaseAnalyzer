@@ -1,0 +1,36 @@
+{
+  "Demo": true,
+  "Tables": {
+    "dbo.Customers": [
+      { "Column": "CustomerId", "Type": "int", "MaxLen": 4, "IsNullable": false, "IsPrimaryKey": true },
+      { "Column": "Email", "Type": "nvarchar", "MaxLen": 256, "IsNullable": false, "IsPrimaryKey": false },
+      { "Column": "IsActive", "Type": "bit", "MaxLen": 1, "IsNullable": false, "IsPrimaryKey": false }
+    ],
+    "dbo.Orders": [
+      { "Column": "OrderId", "Type": "int", "MaxLen": 4, "IsNullable": false, "IsPrimaryKey": true },
+      { "Column": "CustomerId", "Type": "int", "MaxLen": 4, "IsNullable": false, "IsPrimaryKey": false },
+      { "Column": "Status", "Type": "nvarchar", "MaxLen": 40, "IsNullable": false, "IsPrimaryKey": false },
+      { "Column": "CreatedUtc", "Type": "datetime2", "MaxLen": 8, "IsNullable": false, "IsPrimaryKey": false }
+    ],
+    "dbo.OrderLines": [
+      { "Column": "OrderId", "Type": "int", "MaxLen": 4, "IsNullable": false, "IsPrimaryKey": true },
+      { "Column": "LineNo", "Type": "int", "MaxLen": 4, "IsNullable": false, "IsPrimaryKey": true },
+      { "Column": "ProductId", "Type": "int", "MaxLen": 4, "IsNullable": false, "IsPrimaryKey": false },
+      { "Column": "Quantity", "Type": "int", "MaxLen": 4, "IsNullable": false, "IsPrimaryKey": false }
+    ]
+  },
+  "ForeignKeys": [
+    { "Name": "FK_Orders_Customers", "From": "dbo.Orders", "To": "dbo.Customers", "Columns": [ { "From": "CustomerId", "To": "CustomerId", "Ordinal": 1 } ] },
+    { "Name": "FK_OrderLines_Orders", "From": "dbo.OrderLines", "To": "dbo.Orders", "Columns": [ { "From": "OrderId", "To": "OrderId", "Ordinal": 1 } ] }
+  ],
+  "Indexes": [
+    { "Table": "dbo.Orders", "Name": "IX_Orders_CustomerId_CreatedUtc", "Type": "NONCLUSTERED", "Unique": false, "Filter": null, "Definition": null, "Columns": [ { "Name": "CustomerId", "Ordinal": 1, "Included": false }, { "Name": "CreatedUtc", "Ordinal": 2, "Included": false } ] }
+  ],
+  "Triggers": [],
+  "Views": [],
+  "StoredProcedures": {},
+  "Constraints": [
+    { "Table": "dbo.Orders", "Name": "CK_Orders_Status", "Type": "CHECK", "Definition": "Status IN ('Pending','Paid','Cancelled')" },
+    { "Table": "dbo.OrderLines", "Name": "CK_OrderLines_Quantity", "Type": "CHECK", "Definition": "Quantity > 0" }
+  ]
+}

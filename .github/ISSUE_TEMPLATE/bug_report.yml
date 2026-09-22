@@ -1,0 +1,29 @@
+name: Bug report
+description: Report a reproducible non-security defect using synthetic data.
+title: "Bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not attach real schema exports, sample rows, passwords or API keys. Use the private security channel for vulnerabilities."
+  - type: input
+    id: version
+    attributes:
+      label: App commit or version
+      placeholder: commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Database provider
+      options: [Offline demo, SQL Server, PostgreSQL, MySQL, Not applicable]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction with synthetic data
+      description: Include a small fixture, steps, expected and actual result.
+    validations:
+      required: true

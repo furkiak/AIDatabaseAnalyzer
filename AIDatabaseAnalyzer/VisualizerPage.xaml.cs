@@ -8,21 +8,21 @@ public partial class VisualizerPage : ContentPage
 {
     private VisualizerViewModel _viewModel;
 
-    public VisualizerPage(string mermaidCode, string fullJsonSchema)
+    public VisualizerPage(string fullJsonSchema)
     {
         InitializeComponent();
-        _viewModel = new VisualizerViewModel(mermaidCode, fullJsonSchema);
+        _viewModel = new VisualizerViewModel(fullJsonSchema);
         BindingContext = _viewModel;
     }
 
     private async void OnWebViewNavigating(object sender, WebNavigatingEventArgs e)
     {
-        if (e.Url.StartsWith("app://tableclick"))
+        if (e.Url.StartsWith("app://tableclick", StringComparison.OrdinalIgnoreCase))
         {
             e.Cancel = true;
             var uri = new Uri(e.Url);
             var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-            string tableName = query.Get("name");
+            string tableName = query.Get("name") ?? "";
 
             await ShowTableDetails(tableName);
         }
@@ -54,9 +54,9 @@ public partial class VisualizerPage : ContentPage
                 await DisplayAlert("Info", $"No sample data found for {tableName}.", "OK");
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            await DisplayAlert("Error", "Could not load details: " + ex.Message, "OK");
+            await DisplayAlert("Error", "Could not load local table details.", "OK");
         }
     }
 }

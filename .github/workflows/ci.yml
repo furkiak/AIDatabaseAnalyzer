@@ -1,0 +1,14 @@
+name: Connection and privacy tests
+on:
+  push:
+  pull_request:
+jobs:
+  portable-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 9.0.x
+      - name: Run portable tests
+        run: dotnet test AIDatabaseAnalyzer.ConnectionTests/AIDatabaseAnalyzer.ConnectionTests.csproj -c Release --filter "Category!=SqlServer" --nologo

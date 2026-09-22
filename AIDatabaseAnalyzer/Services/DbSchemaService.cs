@@ -2,20 +2,18 @@
 using MySqlConnector;
 using Npgsql;
 using System.Data.Common;
-using System.Text;
 using System.Text.Json;
 
 namespace AIDatabaseAnalyzer.Services;
 
 public class DbSchemaService : IDbSchemaService
 {
-    public enum DbEngine { SqlServer, PostgreSql, MySql }
-
     private DbConnection GetConnection(DbEngine engine, string connString) => engine switch
     {
         DbEngine.SqlServer => new SqlConnection(connString),
         DbEngine.PostgreSql => new NpgsqlConnection(connString),
-        _ => new MySqlConnection(connString)
+        DbEngine.MySql => new MySqlConnection(connString),
+        _ => throw new ArgumentOutOfRangeException(nameof(engine))
     };
 
     public async Task<List<string>> GetDatabasesAsync(DbEngine engine, string connString)
@@ -31,7 +29,12 @@ public class DbSchemaService : IDbSchemaService
     public async Task<List<string>> GetTablesAsync(DbEngine engine, string connString)
     {
         var tbs = new List<string>();
-        string q = engine switch { DbEngine.SqlServer => "SELECT name FROM sys.tables ORDER BY name", DbEngine.PostgreSql => "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'", _ => "SHOW TABLES" };
+        string q = engine switch
+        {
+            DbEngine.SqlServer => "SELECT s.name + '.' + t.name FROM sys.tables t JOIN sys.schemas s ON s.schema_id = t.schema_id ORDER BY s.name, t.name",
+            DbEngine.PostgreSql => "SELECT schemaname || '.' || tablename FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema') ORDER BY schemaname, tablename",
+            _ => "SELECT CONCAT(TABLE_SCHEMA, '.', TABLE_NAME) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME"
+        };
         using var conn = GetConnection(engine, connString); await conn.OpenAsync();
         using var cmd = conn.CreateCommand(); cmd.CommandText = q;
         using var r = await cmd.ExecuteReaderAsync(); while (await r.ReadAsync()) tbs.Add(r.GetString(0));
@@ -46,35 +49,71 @@ public class DbSchemaService : IDbSchemaService
         using var conn = GetConnection(engine, connectionString);
         await conn.OpenAsync();
         using var cmd = conn.CreateCommand(); cmd.CommandText = grandQuery;
+        var selectedTables = filter.SelectedTables.ToHashSet(StringComparer.Ordinal);
+        var quotedTables = new Dictionary<string, string>(StringComparer.Ordinal);
 
         using (var reader = await cmd.ExecuteReaderAsync())
         {
          
-            var tables = new Dictionary<string, List<object>>();
+            var tables = new Dictionary<string, List<ColumnMetadata>>(StringComparer.Ordinal);
             while (await reader.ReadAsync())
             {
                 string tName = reader.GetString(0);
-                if (filter.SelectedTables.Contains(tName))
+                if (selectedTables.Contains(tName))
                 {
-                    if (!tables.ContainsKey(tName)) tables[tName] = new List<object>();
-                    tables[tName].Add(new { Column = reader.GetString(1), Type = reader.GetString(2), MaxLen = reader.IsDBNull(3) ? 0 : Convert.ToInt32(reader.GetValue(3)) });
+                    var quotedName = QuoteTable(engine, reader.GetString(4), reader.GetString(5));
+                    if (quotedTables.TryGetValue(tName, out var existingName) && existingName != quotedName)
+                        throw new InvalidOperationException("Two tables have the same display name. Narrow the schema scope.");
+                    quotedTables[tName] = quotedName;
+                    if (!tables.ContainsKey(tName)) tables[tName] = new List<ColumnMetadata>();
+                    tables[tName].Add(new ColumnMetadata(reader.GetString(1), reader.GetString(2),
+                        reader.IsDBNull(3) ? null : Convert.ToInt32(reader.GetValue(3)),
+                        Convert.ToBoolean(reader.GetValue(6)), Convert.ToBoolean(reader.GetValue(7))));
                 }
             }
             schemaData["Tables"] = tables;
 
          
             await reader.NextResultAsync();
-            var fks = new List<object>();
-            while (await reader.ReadAsync()) if (filter.SelectedTables.Contains(reader.GetString(1))) fks.Add(new { From = reader.GetString(1), To = reader.GetString(3), Name = reader.GetString(0) });
-            schemaData["ForeignKeys"] = fks;
+            var fks = new Dictionary<(string Name, string From, string To), ForeignKeyMetadata>();
+            while (await reader.ReadAsync())
+            {
+                var from = reader.GetString(1);
+                if (!selectedTables.Contains(from)) continue;
+                var key = (Name: reader.GetString(0), From: from, To: reader.GetString(3));
+                if (!fks.TryGetValue(key, out var fk))
+                    fks[key] = fk = new ForeignKeyMetadata { Name = key.Name, From = key.From, To = key.To };
+                fk.Columns.Add(new ForeignKeyColumn(reader.GetString(2), reader.GetString(4), Convert.ToInt32(reader.GetValue(5))));
+            }
+            foreach (var fk in fks.Values) fk.Columns.Sort((a, b) => a.Ordinal.CompareTo(b.Ordinal));
+            schemaData["ForeignKeys"] = fks.Values.ToList();
 
           
             await reader.NextResultAsync();
             if (filter.IncludeIndexes)
             {
-                var idx = new List<object>();
-                while (await reader.ReadAsync()) if (filter.SelectedTables.Contains(reader.GetString(0))) idx.Add(new { Table = reader.GetString(0), Name = reader.GetString(1), Unique = !reader.IsDBNull(3) && Convert.ToBoolean(reader.GetValue(3)) });
-                schemaData["Indexes"] = idx;
+                var indexes = new Dictionary<(string Table, string Name), IndexMetadata>();
+                while (await reader.ReadAsync())
+                {
+                    var table = reader.GetString(0);
+                    if (!selectedTables.Contains(table)) continue;
+                    var key = (Table: table, Name: reader.GetString(1));
+                    if (!indexes.TryGetValue(key, out var index))
+                        indexes[key] = index = new IndexMetadata
+                        {
+                            Table = table, Name = key.Name, Type = reader.GetString(2),
+                            Unique = Convert.ToBoolean(reader.GetValue(3)),
+                            Filter = reader.IsDBNull(7) ? null : reader.GetString(7),
+                            Definition = reader.IsDBNull(8) ? null : reader.GetString(8)
+                        };
+                    index.Columns.Add(new IndexColumn(reader.IsDBNull(4) ? null : reader.GetString(4),
+                        reader.IsDBNull(5) ? 0 : Convert.ToInt32(reader.GetValue(5)),
+                        !reader.IsDBNull(6) && Convert.ToBoolean(reader.GetValue(6))));
+                }
+                foreach (var index in indexes.Values)
+                    index.Columns.Sort((a, b) => a.Included == b.Included
+                        ? a.Ordinal.CompareTo(b.Ordinal) : a.Included.CompareTo(b.Included));
+                schemaData["Indexes"] = indexes.Values.ToList();
             }
 
            
@@ -82,7 +121,7 @@ public class DbSchemaService : IDbSchemaService
             if (filter.IncludeTriggers)
             {
                 var trg = new List<object>();
-                while (await reader.ReadAsync()) if (filter.SelectedTables.Contains(reader.GetString(1))) trg.Add(new { Name = reader.GetString(0), Table = reader.GetString(1) });
+                while (await reader.ReadAsync()) if (selectedTables.Contains(reader.GetString(1))) trg.Add(new { Name = reader.GetString(0), Table = reader.GetString(1) });
                 schemaData["Triggers"] = trg;
             }
 
@@ -113,8 +152,10 @@ public class DbSchemaService : IDbSchemaService
             await reader.NextResultAsync();
             if (filter.IncludeConstraints)
             {
-                var cns = new List<object>();
-                while (await reader.ReadAsync()) if (filter.SelectedTables.Contains(reader.GetString(0))) cns.Add(new { Table = reader.GetString(0), Name = reader.GetString(1), Type = reader.GetString(2) });
+                var cns = new List<ConstraintMetadata>();
+                while (await reader.ReadAsync()) if (selectedTables.Contains(reader.GetString(0)))
+                    cns.Add(new ConstraintMetadata(reader.GetString(0), reader.GetString(1), reader.GetString(2),
+                        reader.IsDBNull(3) ? null : reader.GetString(3)));
                 schemaData["Constraints"] = cns;
             }
         }
@@ -123,12 +164,18 @@ public class DbSchemaService : IDbSchemaService
         if (filter.IncludeSampleData)
         {
             var samples = new Dictionary<string, List<Dictionary<string, object>>>();
-            foreach (var table in filter.SelectedTables)
+            var sampleErrors = new List<string>();
+            foreach (var table in selectedTables)
             {
-                string sQ = engine switch { DbEngine.SqlServer => $"SELECT TOP 3 * FROM [{table}] ORDER BY NEWID()", _ => $"SELECT * FROM {table} LIMIT 3" };
+                if (!quotedTables.TryGetValue(table, out var quotedTable))
+                {
+                    sampleErrors.Add($"{table}: not found in selected table metadata");
+                    continue;
+                }
+                string sQ = engine == DbEngine.SqlServer ? $"SELECT TOP 3 * FROM {quotedTable}" : $"SELECT * FROM {quotedTable} LIMIT 3";
                 try
                 {
-                    using var sCmd = conn.CreateCommand(); sCmd.CommandText = sQ;
+                    using var sCmd = conn.CreateCommand(); sCmd.CommandText = sQ; sCmd.CommandTimeout = 5;
                     using var sR = await sCmd.ExecuteReaderAsync();
                     var rows = new List<Dictionary<string, object>>();
                     while (await sR.ReadAsync())
@@ -139,24 +186,21 @@ public class DbSchemaService : IDbSchemaService
                     }
                     samples[table] = rows;
                 }
-                catch { }
+                catch (DbException) { sampleErrors.Add($"{table}: sample unavailable (permission, timeout or provider error)"); }
             }
             schemaData["SampleData"] = samples;
+            if (sampleErrors.Count > 0) schemaData["SampleErrors"] = sampleErrors;
         }
 
         return JsonSerializer.Serialize(schemaData, new JsonSerializerOptions { WriteIndented = true });
     }
 
-    public string ConvertJsonToMermaid(string jsonSchema)
+    public static string QuoteTable(DbEngine engine, string schema, string table) => engine switch
     {
-        var root = JsonDocument.Parse(jsonSchema).RootElement;
-        var sb = new StringBuilder("erDiagram\n");
-        if (root.TryGetProperty("Tables", out var tbs)) foreach (var t in tbs.EnumerateObject())
-            {
-                sb.AppendLine($"  {t.Name.Replace(" ", "_")} {{");
-                foreach (var c in t.Value.EnumerateArray()) sb.AppendLine($"    {c.GetProperty("Type").GetString().Split(' ')[0]} {c.GetProperty("Column").GetString().Replace(" ", "_")}");
-                sb.AppendLine("  }");
-            }
-        return sb.ToString();
-    }
+        DbEngine.SqlServer => $"[{schema.Replace("]", "]]", StringComparison.Ordinal)}].[{table.Replace("]", "]]", StringComparison.Ordinal)}]",
+        DbEngine.PostgreSql => $"\"{schema.Replace("\"", "\"\"", StringComparison.Ordinal)}\".\"{table.Replace("\"", "\"\"", StringComparison.Ordinal)}\"",
+        DbEngine.MySql => $"`{schema.Replace("`", "``", StringComparison.Ordinal)}`.`{table.Replace("`", "``", StringComparison.Ordinal)}`",
+        _ => throw new ArgumentOutOfRangeException(nameof(engine))
+    };
+
 }

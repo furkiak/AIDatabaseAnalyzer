@@ -6,17 +6,17 @@
     xmlns:local="clr-namespace:AIDatabaseAnalyzer"
     Shell.FlyoutBehavior="Disabled"
     Shell.NavBarIsVisible="False"
-    BackgroundColor="#FFFFFF">
-    <TabBar  
-            Shell.TabBarTitleColor="#2563EB" 
+    BackgroundColor="#EEF4FA">
+    <TabBar
+            Shell.TabBarTitleColor="#245CD6"
             Shell.TabBarUnselectedColor="#64748B"
-            Shell.TabBarBackgroundColor="#FFFFFF">
+            Shell.TabBarBackgroundColor="#F4FFFFFF">
 
-        <Tab Title="Analyzer" Icon="analyzer_icon.png">
+        <Tab Title="Review">
             <ShellContent ContentTemplate="{DataTemplate local:MainPage}" />
         </Tab>
 
-        <Tab Title="Settings" Icon="settings_icon.png">
+        <Tab Title="Settings">
             <ShellContent ContentTemplate="{DataTemplate local:SettingsPage}" />
         </Tab>
     </TabBar>

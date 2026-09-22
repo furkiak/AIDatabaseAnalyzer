@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="330" viewBox="0 0 1120 330" role="img" aria-labelledby="title desc">
+  <title id="title">AI Database Analyzer workflow</title>
+  <desc id="desc">A database or offline demo provides a local schema preview. Sample rows stay local. Confirmed metadata goes to an Ollama or Gemini model, then an evidence-limited review is exported.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#eaf5ff"/><stop offset="1" stop-color="#f9fcff"/></linearGradient>
+    <linearGradient id="card" x1="0" x2="1"><stop stop-color="#153e68"/><stop offset="1" stop-color="#2669a7"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#37648a" flood-opacity=".12"/></filter>
+  </defs>
+  <rect width="1120" height="330" rx="30" fill="url(#background)"/>
+  <text x="48" y="51" fill="#416d95" font-family="Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="2">EVIDENCE-LIMITED SCHEMA REVIEW</text>
+  <g font-family="Arial,sans-serif" filter="url(#shadow)">
+    <rect x="48" y="83" width="231" height="170" rx="24" fill="#fff" stroke="#c7ddeb"/>
+    <rect x="312" y="83" width="231" height="170" rx="24" fill="#fff" stroke="#c7ddeb"/>
+    <rect x="576" y="83" width="231" height="170" rx="24" fill="#fff" stroke="#c7ddeb"/>
+    <rect x="840" y="83" width="231" height="170" rx="24" fill="#fff" stroke="#c7ddeb"/>
+    <rect x="48" y="83" width="231" height="47" rx="24" fill="url(#card)"/>
+    <rect x="312" y="83" width="231" height="47" rx="24" fill="url(#card)"/>
+    <rect x="576" y="83" width="231" height="47" rx="24" fill="url(#card)"/>
+    <rect x="840" y="83" width="231" height="47" rx="24" fill="url(#card)"/>
+  </g>
+  <g fill="#fff" font-family="Arial,sans-serif" font-size="16" font-weight="700">
+    <text x="68" y="113">01  Source</text><text x="332" y="113">02  Preview</text><text x="596" y="113">03  Model</text><text x="860" y="113">04  Review</text>
+  </g>
+  <g fill="#264867" font-family="Arial,sans-serif" font-size="15"><text x="68" y="165">SQL Server / PostgreSQL</text><text x="68" y="187">/ MySQL or offline demo</text><text x="332" y="165">Choose tables and fields.</text><text x="332" y="187">Inspect JSON locally.</text><text x="596" y="165">Consent for remote</text><text x="596" y="187">metadata requests.</text><text x="860" y="165">Cited hypotheses and</text><text x="860" y="187">verification PDF.</text></g>
+  <g fill="#1d78a7" font-family="Arial,sans-serif" font-size="12" font-weight="700"><text x="68" y="228">READ ONLY</text><text x="332" y="228">SAMPLE ROWS STAY LOCAL</text><text x="596" y="228">OLLAMA / GEMINI</text><text x="860" y="228">HUMAN VERIFICATION</text></g>
+  <g fill="none" stroke="#83b3d7" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M284 169h21l-7-7m7 7-7 7"/><path d="M548 169h21l-7-7m7 7-7 7"/><path d="M812 169h21l-7-7m7 7-7 7"/></g>
+  <text x="48" y="298" fill="#5a7895" font-family="Arial,sans-serif" font-size="13">Architecture sketch · not an application screenshot</text>
+</svg>

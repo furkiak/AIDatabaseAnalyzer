@@ -5,7 +5,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AIDatabaseAnalyzer.Models;
 using AIDatabaseAnalyzer.Services;
-using static AIDatabaseAnalyzer.Services.DbSchemaService;
 
 namespace AIDatabaseAnalyzer.ViewModels;
 
@@ -14,15 +13,18 @@ public partial class MainViewModel : ObservableObject
     private readonly DbSchemaService _dbService;
     private readonly ILlmService _llmService;
     private readonly PdfReportService _pdfService;
+    private CancellationTokenSource? _analysisCts;
 
-    [ObservableProperty] private string serverAddress = @"DESKTOP-PC\SQLEXPRESS";
+    [ObservableProperty] private string serverAddress = "localhost";
     [ObservableProperty] private string port = "";
-    [ObservableProperty] private string username = "sa";
-    [ObservableProperty] private string password = "123456";
+    [ObservableProperty] private string username = "";
+    [ObservableProperty] private string password = "";
+    [ObservableProperty] private bool allowUntrustedCertificate;
     [ObservableProperty] private int selectedEngineIndex = 0;
 
 
     [ObservableProperty] private bool isBusy;
+    [ObservableProperty] private bool isDemo;
     [ObservableProperty] private bool isConnectionCardVisible = true;
     [ObservableProperty] private bool isFiltersCardVisible = false;
     [ObservableProperty] private bool isSchemaPreviewCardVisible = false;
@@ -43,6 +45,7 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private string extractedJsonSchema;
     [ObservableProperty] private string schemaStatsText;
+    [ObservableProperty] private string cloudPrivacyText = "AI requests exclude sample rows. Sending metadata to Gemini or a non-local Ollama endpoint requires confirmation.";
     [ObservableProperty] private Color schemaStatsColor = Color.FromArgb("#212529");
     [ObservableProperty] private string customQuestionText;
 
@@ -56,7 +59,7 @@ public partial class MainViewModel : ObservableObject
         get => _selectedDatabase;
         set
         {
-            if (SetProperty(ref _selectedDatabase, value) && !string.IsNullOrEmpty(value))
+            if (SetProperty(ref _selectedDatabase, value) && !IsDemo && !string.IsNullOrEmpty(value))
                 Task.Run(async () => await LoadTablesAsync(value));
         }
     }
@@ -77,293 +80,39 @@ public partial class MainViewModel : ObservableObject
     {
         var comps = new[] { "Views", "Indexes", "Triggers", "Stored Procedures", "Constraints" };
         foreach (var c in comps) Components.Add(new ComponentSelection { Name = c, IsSelected = true });
-        SampleDataSelection = new ComponentSelection { Name = "Fetch 3 Random Rows per Table", IsSelected = false };
+        SampleDataSelection = new ComponentSelection { Name = "Read up to 3 rows per table (local only; may contain sensitive data)", IsSelected = false };
     }
 
     private void LoadDefaultTopics()
     {
-        Topics.Add(new AnalysisTopic
+        // These topics use only fields actually emitted by DbSchemaService.
+        AddTopic(new AnalysisTopic
         {
-            Title = "Non-SARGable Query Predicates and Missing Index Detection",
-            Prompt = "Act as a Senior Database Performance Expert. Analyze the provided JSON schema to find missing index vulnerabilities and potentially non-SARGable structural designs. Contextualize by evaluating all table relationships, primary key assignments, and existing indexes; specifically identify columns with JOIN potential that lack indexes. As a strict constraint, only list high-cardinality columns suitable for B-Tree indexing and avoid unnecessary recommendations."
+            Title = "Schema inventory and data dictionary",
+            Prompt = "List selected tables, their columns, types and declared maximum lengths. Cite the exact Tables property path for each statement. Derive no business meaning from a name without marking it as a hypothesis."
         });
-
-        Topics.Add(new AnalysisTopic
+        AddTopic(new AnalysisTopic
         {
-            Title = "Over-indexing and Overlapping Index Costs",
-            Prompt = "Assume the role of a Database Architecture Auditor. Identify over-indexed tables and overlapping, redundant composite indexes within the JSON schema. Estimate data volatility by examining random data samples and evaluate the storage waste caused by redundant indexes. Output the results in a structured table format clearly reporting which indexes should be dropped or merged."
+            Title = "Declared relationship map",
+            Prompt = "Summarize the foreign keys present in ForeignKeys. Cite each constraint name and From/To table. Suggest possible missing relationships only as questions for the database owner, never as verified defects."
         });
-
-  
-        Topics.Add(new AnalysisTopic
+        AddTopic(new AnalysisTopic
         {
-            Title = "Trigger-Induced Performance Bottlenecks and Deadlocks",
-            Prompt = "Acting as an SQL Performance Tuning Engineer, analyze the trigger logic and business rules within the schema. Focus on concurrent updates to external tables by triggers executing during DML operations. Identify structures causing logical loops and extended processing times, and pinpoint business logic that should be shifted to asynchronous processes or the application layer."
+            Title = "Index metadata review",
+            Prompt = "Inventory the indexes present in Indexes, including key column order, included columns, uniqueness and any filter or definition. Cite exact index paths. Workload, query plans, cardinality and costs are absent; do not recommend dropping or adding an index as a verified fix."
         });
-
-
-        Topics.Add(new AnalysisTopic
+        AddTopic(new AnalysisTopic
         {
-            Title = "Bloated Records and Data Type Wastage",
-            Prompt = "As a Data Modeling Expert, examine the data schema to identify columns with unnecessarily large data types and bloated record architectures. Compare existing column data types against three random data samples to find wastage (e.g., a 255-character type for a boolean value). Develop recommendations while considering the potential risks of data truncation caused by data type narrowing operations."
+            Title = "Constraint and nullability review questions",
+            Prompt = "List available nullability, primary-key flags and constraint metadata, including definitions when present. Cite exact source paths. Explain that business criticality and full enforcement cannot be established from this snapshot; ask the DBA to verify possible gaps."
         });
-
-
-        Topics.Add(new AnalysisTopic
+        AddTopic(new AnalysisTopic
         {
-            Title = "Hidden Complexity in View Layers and Transient Data Load",
-            Prompt = "Assuming the role of an Enterprise Data Warehouse Architect, parse the View definitions to audit excessive nesting and complex join structures. Considering that subqueries or cross-view invocations cause performance degradation, analyze whether these logics can be replaced with more efficient Common Table Expressions (CTEs) or materialized views."
+            Title = "Object inventory and verification plan",
+            Prompt = "Inventory view, trigger and stored-procedure names from the payload. Their definitions, permissions and execution behavior are absent. Identify the precise read-only evidence a DBA would need before drawing performance or security conclusions."
         });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "In-Memory and Horizontal Scalability Bottleneck Detection",
-            Prompt = "Act as a Distributed Systems Architect. Evaluate the database's horizontal scalability capacity by analyzing table structures and foreign key bindings. Given that heavily concentrated foreign keys prevent migration to a microservices architecture, identify which tables possess columns suitable for use as partition keys."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Foreign Key Index Deficiency and Hidden Table Scans",
-            Prompt = "As a Database Performance Expert, scan all foreign key constraints and verify the existence of matching indexes. Considering that unindexed foreign keys are one of the most common hidden bottlenecks causing full table scans during cascading deletes, report which foreign keys urgently require indexing."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Execution Plan Simulation and Cost Estimation",
-            Prompt = "Acting as a Query Optimization Engineer, construct three critical query scenarios assumed to fetch the most data, based on table relationships and random data samples. Mentally simulate how the database engine will execute them (e.g., Hash Match, Nested Loops, Table Scan). Predict execution bottlenecks and provide query rewrite or structural configuration recommendations to reduce costs."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Collation Mismatches and Implicit Conversion",
-            Prompt = "As a Database Internationalization and Performance Expert, examine the column properties to detect Collation mismatches between joined tables. Acknowledging that mismatched structures cause implicit conversions and invalidate indexes, focus solely on character-based data bindings to generate standardization strategies."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Connection Pool Exhaustion and Metadata Impacts",
-            Prompt = "In the role of a Site Reliability Engineer, analyze the metadata configurations, session controls in triggers, and temporary table creation commands. Identify architectural flaws that could bloat the connection pool or cause data residue across sessions."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Normalization Violations and Data Redundancy",
-            Prompt = "Act as a Database Design Auditor. Using the schema and sample data, detect violations of fundamental normalization forms, particularly the Third Normal Form (3NF). Find anomalies related to repeating data in columns and check for transitive dependencies within rows using the sample data. Constrain your analysis to deduce from structural relationships whether the violation is a design flaw or a conscious, read-optimized choice."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Poorly Designed Denormalization and Loss of Data Integrity",
-            Prompt = "Assume the role of a Data Modeling Architect. Examine the denormalized structures and investigate how these duplicated data points are kept synchronized (e.g., via triggers or application layer). Scenario-test data discrepancies that would occur if the duplicated data is not updated. List the lack of database-level consistency guarantees for the denormalized fields."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Orphan Records and Missing Relational Integrity",
-            Prompt = "Acting as a Data Integrity Specialist, identify tables that should be logically related but lack physical foreign key constraints. Find missing links by analyzing similarities in column names and matches in data samples. Constrain your output to report only high-confidence relationship matches."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Circular Dependency and Infinite Loops",
-            Prompt = "As a Solutions Architect, map out circular dependency routing in the database architecture based on relationships and triggers. Analyze whether hierarchical or relational designs create a loop and evaluate the possibility of recursive trigger execution. Use graph-based network analysis logic to list the routes step-by-step."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Multi-Tenant Isolation and Schema Leakage Analysis",
-            Prompt = "Act as a SaaS Systems Architect. Determine whether the database uses a multi-tenant shared data pool approach and audit its isolation logic. Examine the presence of tenant identifier columns (e.g., tenant_id); report tables lacking these columns or isolation policies as risks for cross-tenant data leakage."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "ORM Anti-Patterns: Schema Designs Prone to N+1 Queries",
-            Prompt = "Assuming the role of a Backend Integration Expert, examine the relational integrity and data fragmentation to identify table designs that could cause the N+1 query problem in ORM usage. By calculating JOIN costs from the sample data structure, determine if frequently co-queried data is illogically fragmented into sub-tables."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Recursive CTE Misusage and Depth Overflows",
-            Prompt = "In the role of a Site Reliability Engineer, identify self-referencing columns in the schema and analyze whether there are hierarchy limitations. Investigate the absence of depth constraints that would prevent recursive queries from running uncontrollably, and determine performance boundaries by classifying the tree structures."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Siloed and Fragmented Schema Modules",
-            Prompt = "Act as an Enterprise Architecture Lead. Group all tables into modules and identify isolated, non-integrated database silos. Constrain your analysis to a Domain-Driven Design (DDD) context to determine if similar data is copied in an unrelated manner using different logic."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Improper Storage Architecture for Time-Series Data",
-            Prompt = "As a Database Design Auditor, identify metric or log tables prone to receiving thousands of inserts per second with timestamps. Explain how storing these tables with B-Tree indexes within a relational schema will cripple write performance, and provide suitable data store migration recommendations."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Polymorphic Relationship Flaws and Loss of Referential Integrity",
-            Prompt = "Acting as a Data Modeling Expert, examine structures created with dual-column combinations like entity_id and entity_type (polymorphic relationships). Demonstrate how these structures can lead to orphan records due to the lack of classic foreign key constraints, and design solutions using database-level CHECK constraints or triggers to ensure integrity."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "RBAC and Principle of Least Privilege Violations",
-            Prompt = "Act as a Cybersecurity and Database Auditor. Analyze the privilege, role, and permission tables to find vulnerabilities in the Role-Based Access Control (RBAC) logic. Detect erroneous associations granting standard users direct access to critical system tables, analyze the delegation logic from sample data, and verify the implementation of the Principle of Least Privilege."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Sensitive Data (PII/PHI) Encryption at Rest Deficiencies",
-            Prompt = "Assuming the role of a Data Privacy Compliance Specialist, analyze column names and sample data to identify unmasked identification numbers, health codes, passwords, or financial data. Utilizing Named Entity Recognition (NER) logic, focus on fields that expose the company to regulatory risks and propose dynamic data masking and encryption strategies."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Over-reliance on Client-Side Controls (Business Logic Flaws)",
-            Prompt = "As a Penetration Testing Expert, identify the lack of CHECK constraints in numeric and status-based columns to analyze 'Over-reliance on Client Controls' vulnerabilities. Question the database controls against scenarios like entering negative balances or bypassing valid statuses in e-commerce workflows."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Privilege Escalation and Insecure Direct Object Reference (IDOR)",
-            Prompt = "Act as a Security Architecture Analyst. Examine the primary keys used in the schema to identify enumeration strategies. Evaluate whether externally accessible services utilize sequential integers (auto-increment) and assess the risk posed by the absence of unpredictable structures like UUIDs or GUIDs."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Dynamic Procedures Leading to SQL Injection",
-            Prompt = "In the role of a Vulnerability Researcher, inspect stored procedures, dynamic query constructs, and view designs for Second-Order SQL Injection risks. Identify structures that allow unsanitized input to be executed directly, and report on how these processes can be refactored using parameterized queries."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Double Spending and Race Condition Vulnerabilities",
-            Prompt = "Acting as a Financial Security and Fraud Investigation Expert, analyze wallet, coupon, or inventory tables to pinpoint exposures to Double Spending and Race Condition vulnerabilities. Constrain the model to specifically audit for the presence of Optimistic or Pessimistic Locking mechanisms, such as version number columns."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Missing Audit Trails and Logging Losses",
-            Prompt = "As an IT Auditor, identify tables housing sensitive data and analyze the absence of Audit Trail histories tracking their modifications. Check for auditing columns like created_at or updated_by, and propose a Change Data Capture (CDC) architecture for entities that only retain the most current state."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Data Retention (Storage Limitation) Violations under GDPR and HIPAA",
-            Prompt = "Act as an IT Law and Regulatory Auditor. Audit the schema against data limitation principles (Storage Limitation). Check for the absence of mechanisms (e.g., Time to Live, soft_delete markers) dictating when data like user logs or canceled transactions should be deleted or anonymized, and contextualize with regulatory penalty risks."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Unexpected Input Manipulation and Format Bypass (Data Poisoning)",
-            Prompt = "Assuming the role of a Business Logic Vulnerability Researcher, locate tables storing data requiring specific formats (e.g., email, phone, IP addresses) and analyze the lack of format validation constraints (Regex/Domain validation). Detail Data Poisoning scenarios that could arise from over-reliance on frontend validation."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "AI Model Collapse and Synthetic Data Pollution Detection",
-            Prompt = "Act as an AI Synthetic Data Specialist. Linguistically and structurally analyze the random data samples to test for synthetic data pollution generated by LLMs and assess their suitability for model training. Scan the sample data for characteristic patterns of LLM-generated text, such as excessive perfection or cliché phrasing."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Heap Table and Primary Key Analysis",
-            Prompt = "Act as a Database Architecture Expert. Identify tables in the schema that lack a 'Primary Key' or 'Clustered Index' (Heap tables). Explain the performance and fragmentation risks of Heap tables, and recommend appropriate columns to serve as primary keys based on their naming patterns and data types."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Data Type Inconsistency Analysis",
-            Prompt = "Assume the role of a Data Quality Analyst. Search for columns with the identical conceptual names across different tables (e.g., 'id', 'user_id', 'status') that have conflicting 'DataType' or 'MaxLen' properties. Explain the performance degradation risks, such as 'implicit conversion' during JOIN operations, caused by these mismatches."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Table Width and Page Fragmentation Risk",
-            Prompt = "Act as a SQL Server Storage Specialist. Analyze the 'MaxLen' properties of columns per table to identify potential row-chaining and page-splitting risks. Flag tables with multiple wide columns (e.g., several VARCHAR(4000) or heavily sized fields) where the combined row size is highly likely to exceed the 8KB physical page limit."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Identity Column Capacity Audit",
-            Prompt = "In the role of a Database Capacity Planner, check for 'Identity' or auto-increment patterns within 'DataType' definitions. Identify tables using structurally small numeric types like 'TINYINT' or 'SMALLINT' for primary keys or highly active sequential fields. Warn about the risk of capacity exhaustion and application downtime."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Platform Migration Risk Assessment",
-            Prompt = "Act as a Cloud Database Migration Architect. Assess the risk of migrating this schema to open-source platforms like PostgreSQL or cloud-native DBs. Identify specific proprietary dependencies (e.g., specialized data types, unique trigger logic, or engine-specific constraints) that would complicate a cross-platform migration."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Naming Standards and Consistency",
-            Prompt = "Assume the role of a Database Code Reviewer. Review the naming conventions across all Tables, Columns, and Indexes within the JSON. Identify inconsistencies (e.g., mixing CamelCase, PascalCase, and snake_case) and suggest a unified, standardized naming strategy to improve schema maintainability."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Automated Data Dictionary Documentation",
-            Prompt = "Act as a Technical Writer and Database Administrator. Generate a professional Data Dictionary in Markdown format based on the schema. For each table, describe its business purpose based on its naming context. Briefly explain the role, data type, and logical constraints of critical columns to serve as immediate developer documentation."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Business Domain and Microservice Boundary Grouping",
-            Prompt = "Act as a Domain-Driven Design (DDD) Architect. Analyze the entire JSON schema and conceptually group the tables into logical business domains (e.g., Core, Sales, Identity, Billing). Based on table clusters and relationship density, suggest logical data boundaries for migrating this monolithic schema into a Microservices architecture."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Soft Delete Pattern Consistency",
-            Prompt = "Assume the role of a Software Architecture Auditor. Search for 'Soft Delete' patterns in column metadata (e.g., 'IsDeleted', 'IsActive', 'StatusID'). Identify inconsistencies where some core business tables implement this pattern while others do not. Detail the risks of reporting inaccuracies and data state conflicts caused by non-uniform deletion logic."
-        });
-
-
-        Topics.Add(new AnalysisTopic
-        {
-            Title = "Excessive Nullability and Constraint Audit",
-            Prompt = "Act as a Data Integrity Specialist. Review the nullability configuration of the schema's columns. Identify tables where an excessive percentage of business-critical columns allow NULL values without corresponding 'Check Constraints' or 'Default Values'. Explain how this architectural leniency degrades data quality and pushes validation burdens entirely to the frontend."
-        });
-
-
         UpdateTopicCount();
     }
- 
 
     private void AddTopic(AnalysisTopic topic)
     {
@@ -398,17 +147,13 @@ public partial class MainViewModel : ObservableObject
     private async Task ConnectAsync()
     {
         if (IsBusy) return;
+        IsDemo = false;
         IsBusy = true;
         try
         {
             SelectedEngine = SelectedEngineIndex switch { 1 => DbEngine.PostgreSql, 2 => DbEngine.MySql, _ => DbEngine.SqlServer };
-            string portString = string.IsNullOrWhiteSpace(Port) ? "" : $"Port={Port};";
-            BaseConnectionString = SelectedEngine switch
-            {
-                DbEngine.SqlServer => $"Server={ServerAddress};{portString}User Id={Username};Password={Password};TrustServerCertificate=True;",
-                DbEngine.PostgreSql => $"Host={ServerAddress};{portString}Username={Username};Password={Password};",
-                DbEngine.MySql => $"Server={ServerAddress};{portString}Uid={Username};Pwd={Password};"
-            };
+            BaseConnectionString = DatabaseConnectionStrings.Build(
+                SelectedEngine, ServerAddress, Port, Username, Password, AllowUntrustedCertificate);
 
             var dbs = await _dbService.GetDatabasesAsync(SelectedEngine, BaseConnectionString);
 
@@ -420,7 +165,47 @@ public partial class MainViewModel : ObservableObject
                 IsFiltersCardVisible = true;
             });
         }
-        catch (Exception ex) { await Application.Current.MainPage.DisplayAlert("Error", ex.Message, "OK"); }
+        catch (Exception) { await Application.Current.MainPage.DisplayAlert("Connection failed", "Check the server, port (1–65535), credentials and certificate. Untrusted certificates require the local-development option.", "OK"); }
+        finally { IsBusy = false; }
+    }
+
+    [RelayCommand]
+    private async Task LoadDemoAsync()
+    {
+        if (IsBusy || IsAnalysisRunning) return;
+        IsBusy = true;
+        try
+        {
+            await using var stream = await FileSystem.Current.OpenAppPackageFileAsync("demo-schema.json");
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync();
+            using var document = System.Text.Json.JsonDocument.Parse(json);
+            IsDemo = true;
+            SelectedEngine = DbEngine.SqlServer;
+            SelectedDatabase = "Offline demo";
+            foreach (var table in Tables) table.PropertyChanged -= OnTableSelectionChanged;
+            Tables.Clear();
+            FilteredTables.Clear();
+            foreach (var property in document.RootElement.GetProperty("Tables").EnumerateObject())
+            {
+                var table = new TableSelection { Name = property.Name, IsSelected = true };
+                table.PropertyChanged += OnTableSelectionChanged;
+                Tables.Add(table);
+                FilteredTables.Add(table);
+            }
+            UpdateTableCount();
+            ExtractedJsonSchema = json;
+            SchemaStatsText = $"Offline demo: {json.Length:N0} characters | {Tables.Count} synthetic tables";
+            SchemaStatsColor = Color.FromArgb("#245CD6");
+            CloudPrivacyText = "Synthetic demo. Diagram and JSON preview need no database, model or network. Running AI review uses your selected model destination.";
+            IsConnectionCardVisible = false;
+            IsFiltersCardVisible = false;
+            IsSchemaPreviewCardVisible = true;
+        }
+        catch (Exception)
+        {
+            await Application.Current.MainPage.DisplayAlert("Demo unavailable", "The packaged demo schema could not be opened.", "OK");
+        }
         finally { IsBusy = false; }
     }
 
@@ -429,7 +214,7 @@ public partial class MainViewModel : ObservableObject
         MainThread.BeginInvokeOnMainThread(() => IsBusy = true);
         try
         {
-            string fullConnString = BaseConnectionString + (SelectedEngine == DbEngine.SqlServer ? $"Database={dbName};" : $"Database={dbName};");
+            string fullConnString = DatabaseConnectionStrings.WithDatabase(SelectedEngine, BaseConnectionString, dbName);
             var tables = await _dbService.GetTablesAsync(SelectedEngine, fullConnString);
 
             MainThread.BeginInvokeOnMainThread(() =>
@@ -448,7 +233,7 @@ public partial class MainViewModel : ObservableObject
                 UpdateTableCount();
             });
         }
-        catch (Exception ex) { MainThread.BeginInvokeOnMainThread(async () => await Application.Current.MainPage.DisplayAlert("Error", ex.Message, "OK")); }
+        catch (Exception) { MainThread.BeginInvokeOnMainThread(async () => await Application.Current.MainPage.DisplayAlert("Connection failed", "Could not list tables. Check access and connection settings.", "OK")); }
         finally { MainThread.BeginInvokeOnMainThread(() => IsBusy = false); }
     }
 
@@ -470,20 +255,23 @@ public partial class MainViewModel : ObservableObject
                 IncludeSampleData = SampleDataSelection.IsSelected
             };
 
-            string fullConnString = BaseConnectionString + (SelectedEngine == DbEngine.SqlServer ? $"Database={SelectedDatabase};" : $"Database={SelectedDatabase};");
+            string fullConnString = DatabaseConnectionStrings.WithDatabase(SelectedEngine, BaseConnectionString, SelectedDatabase);
             ExtractedJsonSchema = await _dbService.ExtractSchemaAsJsonAsync(SelectedEngine, fullConnString, filter);
 
             int charCount = ExtractedJsonSchema.Length;
             double kbSize = charCount / 1024.0;
             int estimatedTokens = charCount / 4;
 
-            SchemaStatsText = $"Size: {kbSize:N2} KB | Chars: {charCount:N0} | Est. Tokens: ~{estimatedTokens:N0}";
+            SchemaStatsText = $"Local snapshot: {kbSize:N2} KB | {charCount:N0} chars | ~{estimatedTokens:N0} tokens";
+            CloudPrivacyText = filter.IncludeSampleData
+                ? "This preview includes sample rows for local visualization and export. AI requests exclude them. Sending metadata to a remote model requires confirmation."
+                : "AI requests exclude sample rows. Sending metadata to Gemini or a non-local Ollama endpoint requires confirmation.";
             SchemaStatsColor = estimatedTokens > 100000 ? Colors.DarkRed : Color.FromArgb("#212529");
 
             IsFiltersCardVisible = false;
             IsSchemaPreviewCardVisible = true;
         }
-        catch (Exception ex) { await Application.Current.MainPage.DisplayAlert("Error", ex.Message, "OK"); }
+        catch (Exception) { await Application.Current.MainPage.DisplayAlert("Schema extraction failed", "Check database permissions and the selected scope. No password or connection string is shown.", "OK"); }
         finally { IsBusy = false; }
     }
 
@@ -494,6 +282,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void StartOver()
     {
+        IsDemo = false;
         IsSchemaPreviewCardVisible = false;
         IsFiltersCardVisible = false;
         IsConnectionCardVisible = true;
@@ -508,9 +297,10 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportAsync()
     {
-        string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Schema.txt");
+        if (string.IsNullOrWhiteSpace(ExtractedJsonSchema)) return;
+        string path = CreateOutputPath("Schema", ".json");
         await File.WriteAllTextAsync(path, ExtractedJsonSchema);
-        await Application.Current.MainPage.DisplayAlert("Exported", "Saved to Desktop.", "OK");
+        await PresentOutputAsync(path, "Schema snapshot");
     }
 
     [RelayCommand]
@@ -519,8 +309,7 @@ public partial class MainViewModel : ObservableObject
         if (string.IsNullOrEmpty(ExtractedJsonSchema)) return;
         try
         {
-            string mermaidCode = _dbService.ConvertJsonToMermaid(ExtractedJsonSchema);
-            var visualPage = new VisualizerPage(mermaidCode, ExtractedJsonSchema);
+            var visualPage = new VisualizerPage(ExtractedJsonSchema);
             await Shell.Current.Navigation.PushModalAsync(visualPage);
         }
         catch (Exception ex) { await Application.Current.MainPage.DisplayAlert("Error", "Visualization failed: " + ex.Message, "OK"); }
@@ -563,7 +352,35 @@ public partial class MainViewModel : ObservableObject
     private async Task StartAnalysisAsync()
     {
         var selected = Topics.Where(t => t.IsSelected).ToList();
-        if (selected.Count == 0) return;
+        if (IsAnalysisRunning || selected.Count == 0 || string.IsNullOrWhiteSpace(ExtractedJsonSchema)) return;
+
+        bool isLocal = Preferences.Get("SelectedEngine", "Ollama") == "Ollama";
+        string analysisSchema = SchemaPrivacy.WithoutSamples(ExtractedJsonSchema);
+        if (selected.Any(topic => topic.Prompt.Length > 3_000))
+        {
+            await Application.Current.MainPage.DisplayAlert("Prompt too long", "Shorten the custom prompt to 3,000 characters or fewer.", "OK");
+            return;
+        }
+        IReadOnlyList<string> schemaChunks;
+        try { schemaChunks = SchemaChunker.Split(analysisSchema); }
+        catch (InvalidOperationException)
+        {
+            await Application.Current.MainPage.DisplayAlert("Schema too large", "Exclude optional metadata or select fewer tables. No model request was sent.", "OK");
+            return;
+        }
+        string ollamaUrl = Preferences.Get("OllamaUrl", "http://localhost:11434");
+        bool needsConsent = !isLocal || !ModelDestination.IsLoopbackOllama(ollamaUrl);
+        if (needsConsent)
+        {
+            var destination = isLocal
+                ? $"Ollama endpoint {ollamaUrl}"
+                : $"Google Gemini ({Preferences.Get("GeminiModel", "gemini-3.1-flash-lite-preview")})";
+            bool consent = await Application.Current.MainPage.DisplayAlert(
+                "Send database metadata to a model?",
+                $"Destination: {destination}. Snapshot: {analysisSchema.Length:N0} characters; {schemaChunks.Count} sections repeated for {selected.Count} selected prompts. Sample rows are excluded. Model responses may also be sent for the summary. Review metadata and custom prompts for sensitive names first.",
+                "Send and analyze", "Cancel");
+            if (!consent) return;
+        }
 
         SelectedTopicsForAnalysis.Clear();
         foreach (var t in selected)
@@ -575,9 +392,20 @@ public partial class MainViewModel : ObservableObject
         IsQuestionsCardVisible = false;
         IsAnalysisProgressCardVisible = true;
         IsAnalysisRunning = true;
+        _analysisCts = new CancellationTokenSource();
+        var cancellationToken = _analysisCts.Token;
 
-        bool isLocal = Preferences.Get("SelectedEngine", "Ollama") == "Ollama";
         var reportSections = new List<ReportSection>();
+        reportSections.Add(new ReportSection
+        {
+            Title = "Scope and evidence limitations",
+            Content = $"AI-assisted hypotheses from a {(IsDemo ? "synthetic offline demo" : "database")} schema snapshot. Engine: {SelectedEngine}; database: {SelectedDatabase}; selected tables: {Tables.Count(t => t.IsSelected)}; model destination: {(isLocal ? ollamaUrl : "Google Gemini")}. No queries, execution plans, permissions, row statistics, trigger/view/routine bodies or production behavior were measured. Verify every recommendation against the live workload before making a change."
+        });
+        reportSections.Add(new ReportSection
+        {
+            Title = "Source field manifest",
+            Content = SchemaEvidenceSummary.Create(analysisSchema)
+        });
         StringBuilder fullAnalysisContent = new StringBuilder();
 
         try
@@ -590,43 +418,117 @@ public partial class MainViewModel : ObservableObject
 
                 try
                 {
-                    string promptWithSchema = $"{topic.Prompt}\n\nSchema:\n{ExtractedJsonSchema}";
-                    string response = isLocal ? await _llmService.AskOllamaAsync(promptWithSchema) : await _llmService.AskGeminiAsync(promptWithSchema);
+                    var topicResponses = new StringBuilder();
+                    for (int chunk = 0; chunk < schemaChunks.Count; chunk++)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        CurrentTaskText = $"{topic.Title}: section {chunk + 1}/{schemaChunks.Count}";
+                        string prompt = AnalysisPromptPolicy.Topic(
+                            $"{topic.Prompt}\nReview only section {chunk + 1} of {schemaChunks.Count}; do not infer missing objects from this partial scope.",
+                            schemaChunks[chunk]);
+                        string response = isLocal
+                            ? await _llmService.AskOllamaAsync(prompt, cancellationToken)
+                            : await _llmService.AskGeminiAsync(prompt, cancellationToken);
+                        topicResponses.AppendLine($"Section {chunk + 1}/{schemaChunks.Count}:").AppendLine(response).AppendLine();
+                    }
 
-                    reportSections.Add(new ReportSection { Title = topic.Title, Content = response });
-                    fullAnalysisContent.AppendLine($"--- Section: {topic.Title} ---").AppendLine(response).AppendLine();
+                    var completedResponse = topicResponses.ToString();
+                    reportSections.Add(new ReportSection { Title = $"Hypotheses: {topic.Title}", Content = "Unverified model output. Match each claim to the source field manifest and independent database evidence before acting.\n\n" + completedResponse });
+                    fullAnalysisContent.AppendLine($"--- Section: {topic.Title} ---").AppendLine(completedResponse).AppendLine();
                     topic.Status = AnalysisStatus.Completed;
                 }
-                catch (Exception ex)
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+                catch (Exception)
                 {
                     topic.Status = AnalysisStatus.Error;
-                    reportSections.Add(new ReportSection { Title = topic.Title, Content = "Error: " + ex.Message });
+                    reportSections.Add(new ReportSection { Title = topic.Title, Content = "Analysis failed for this topic. No finding was established." });
                 }
             }
 
-            CurrentTaskText = "Generating Executive Summary & Action Plan...";
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!selected.Any(topic => topic.Status == AnalysisStatus.Completed))
+                throw new InvalidOperationException("No model response was completed.");
+            CurrentTaskText = "Preparing evidence summary and verification plan...";
             string aggregatedResults = fullAnalysisContent.ToString();
-            string summaryPrompt = $"Write an Executive Summary based on these results:\n{aggregatedResults}";
-            string actionPrompt = $"Provide a Prioritized Action Plan based on these results:\n{aggregatedResults}";
+            string summaryPrompt = AnalysisPromptPolicy.Synthesis("Write a concise evidence-limited summary.", aggregatedResults);
+            string actionPrompt = AnalysisPromptPolicy.Synthesis("Create a prioritized verification plan, not an automatic remediation plan.", aggregatedResults);
 
-            string summaryResponse = isLocal ? await _llmService.AskOllamaAsync(summaryPrompt) : await _llmService.AskGeminiAsync(summaryPrompt);
-            await Task.Delay(2000); 
-            string actionResponse = isLocal ? await _llmService.AskOllamaAsync(actionPrompt) : await _llmService.AskGeminiAsync(actionPrompt);
+            string summaryResponse;
+            string actionResponse;
+            if (summaryPrompt.Length <= SchemaChunker.DefaultMaxCharacters && actionPrompt.Length <= SchemaChunker.DefaultMaxCharacters)
+            {
+                summaryResponse = isLocal
+                    ? await _llmService.AskOllamaAsync(summaryPrompt, cancellationToken)
+                    : await _llmService.AskGeminiAsync(summaryPrompt, cancellationToken);
+                actionResponse = isLocal
+                    ? await _llmService.AskOllamaAsync(actionPrompt, cancellationToken)
+                    : await _llmService.AskGeminiAsync(actionPrompt, cancellationToken);
+            }
+            else
+            {
+                summaryResponse = $"{selected.Count(topic => topic.Status == AnalysisStatus.Completed)} of {selected.Count} selected topics produced unverified observations. Results exceeded the synthesis request budget; inspect each section and its source path.";
+                actionResponse = "Review each hypothesis against the listed schema field and a live read-only query or execution plan. Record owner, measured impact, change and rollback before prioritizing remediation.";
+            }
 
-            reportSections.Insert(0, new ReportSection { Title = "1. Executive Summary", Content = summaryResponse });
-            reportSections.Insert(1, new ReportSection { Title = "2. Prioritized Action Plan", Content = actionResponse });
+            reportSections.Insert(1, new ReportSection { Title = "Executive summary (unverified)", Content = summaryResponse });
+            reportSections.Insert(2, new ReportSection { Title = "Prioritized verification plan", Content = actionResponse });
 
+            cancellationToken.ThrowIfCancellationRequested();
             CurrentTaskText = "Finalizing PDF Report...";
-            string pdfPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), $"{SelectedDatabase}_Comprehensive_Analysis.pdf");
+            string pdfPath = CreateOutputPath("Schema_Review", ".pdf");
             _pdfService.GenerateReport(reportSections, pdfPath, SelectedDatabase);
 
-            await Application.Current.MainPage.DisplayAlert("Success", "Comprehensive Report saved to Desktop.", "OK");
+            await PresentOutputAsync(pdfPath, "Schema review PDF");
         }
-        catch (Exception ex) { await Application.Current.MainPage.DisplayAlert("System Error", ex.Message, "OK"); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            foreach (var topic in selected.Where(topic => topic.Status == AnalysisStatus.Processing))
+                topic.Status = AnalysisStatus.Pending;
+            IsAnalysisProgressCardVisible = false;
+            IsQuestionsCardVisible = true;
+            CurrentTaskText = "Analysis canceled; no PDF was created.";
+        }
+        catch (Exception)
+        {
+            IsAnalysisProgressCardVisible = false;
+            IsQuestionsCardVisible = true;
+            await Application.Current.MainPage.DisplayAlert("Analysis failed", "The report could not be completed. Check the selected model and connection settings.", "OK");
+        }
         finally
         {
+            _analysisCts?.Dispose();
+            _analysisCts = null;
             IsAnalysisRunning = false;
-            CurrentTaskText = "Analysis Finished.";
+            if (IsAnalysisProgressCardVisible) CurrentTaskText = "Analysis finished.";
         }
+    }
+
+    [RelayCommand]
+    private void CancelAnalysis() => _analysisCts?.Cancel();
+
+    private string CreateOutputPath(string purpose, string extension)
+    {
+        var directory = OperatingSystem.IsWindows()
+            ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
+            : FileSystem.Current.AppDataDirectory;
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+            directory = FileSystem.Current.AppDataDirectory;
+        var database = string.IsNullOrWhiteSpace(SelectedDatabase) ? "Database" : SelectedDatabase;
+        var safeName = string.Concat(database.Select(character =>
+            Path.GetInvalidFileNameChars().Contains(character) || character is '/' or '\\' or ':' ? '_' : character));
+        return Path.Combine(directory, $"{safeName}_{purpose}_{DateTime.UtcNow:yyyyMMdd_HHmmss}{extension}");
+    }
+
+    private async Task PresentOutputAsync(string path, string title)
+    {
+        if (OperatingSystem.IsWindows())
+            await Application.Current.MainPage.DisplayAlert("Saved", $"{title} saved to {path}. Review sensitive metadata before sharing.", "OK");
+        else
+            await Microsoft.Maui.ApplicationModel.DataTransfer.Share.Default.RequestAsync(
+                new Microsoft.Maui.ApplicationModel.DataTransfer.ShareFileRequest
+                {
+                    Title = title,
+                    File = new Microsoft.Maui.ApplicationModel.DataTransfer.ShareFile(path)
+                });
     }
 }

@@ -2,10 +2,9 @@
 using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Net.Http;
-using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Maui.Storage;
+using AIDatabaseAnalyzer.Services;
 
 namespace AIDatabaseAnalyzer.ViewModels;
 
@@ -62,6 +61,8 @@ public partial class SettingsViewModel : ObservableObject
 
         if (!string.IsNullOrWhiteSpace(GeminiApiKey))
             await SecureStorage.Default.SetAsync("GeminiApiKey", GeminiApiKey);
+        else
+            SecureStorage.Default.Remove("GeminiApiKey");
 
         await Application.Current.MainPage.DisplayAlert("Success", "Settings saved securely.", "OK");
     }
@@ -81,14 +82,13 @@ public partial class SettingsViewModel : ObservableObject
             }
             else
             {
-                string url = $"https://generativelanguage.googleapis.com/v1beta/models/{GeminiModel}:generateContent?key={GeminiApiKey}";
-                var body = new { contents = new[] { new { parts = new[] { new { text = "hi" } } } } };
-                var res = await _httpClient.PostAsync(url, new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"));
-                if (!res.IsSuccessStatusCode) throw new Exception(await res.Content.ReadAsStringAsync());
+                using var request = GeminiApiRequest.Create(GeminiModel, GeminiApiKey, "Connection test");
+                using var res = await _httpClient.SendAsync(request);
+                if (!res.IsSuccessStatusCode) throw new Exception($"Gemini returned {(int)res.StatusCode}.");
                 await Application.Current.MainPage.DisplayAlert("Success", "Gemini connection OK!", "OK");
             }
         }
-        catch (Exception ex) { await Application.Current.MainPage.DisplayAlert("Fail", ex.Message, "OK"); }
+        catch (Exception) { await Application.Current.MainPage.DisplayAlert("Connection test failed", "Check the endpoint, model, network and API key. No credential details are shown.", "OK"); }
         finally { IsTesting = false; }
     }
 }

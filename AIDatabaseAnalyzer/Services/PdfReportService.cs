@@ -25,8 +25,8 @@ public class PdfReportService
                 page.PageColor(Colors.White);
                 page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Arial"));
 
-                page.Header().Text($"Database Analysis Report: {dbName}")
-                    .SemiBold().FontSize(20).FontColor(Colors.Blue.Darken2);
+                page.Header().Text($"Schema review: {dbName}")
+                    .SemiBold().FontSize(20).FontColor(Colors.Blue.Darken3);
 
                 page.Content().PaddingVertical(1, Unit.Centimetre).Column(col =>
                 {
@@ -42,7 +42,7 @@ public class PdfReportService
 
                 page.Footer().AlignCenter().Text(x =>
                 {
-                    x.Span("AI-Assisted DB Refactoring Tool - Page ");
+                    x.Span("AI-assisted hypotheses · verify before changing data  |  Page ");
                     x.CurrentPageNumber();
                 });
             });
