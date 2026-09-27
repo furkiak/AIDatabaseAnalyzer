@@ -21,10 +21,10 @@ Five built-in review topics keep claims within this evidence: inventory, declare
 
 ## Run
 
-Requirements: .NET 9 SDK, .NET MAUI workload for your target, and a database account with catalog access. Windows is the currently verified build target; Android, iOS and Mac Catalyst target files exist but have not been built in this revision. The **Try the offline demo** button opens a synthetic three-table schema with no database, model, credentials or network; model review is optional. Configure either a running Ollama endpoint (default `http://localhost:11434`) or a Gemini API key in Settings. Normal profiles use MAUI SecureStorage; explicit isolated Windows profiles use their own current-user DPAPI file. Do not put a key in a URL.
+Requirements: a stable .NET 10 SDK, the MAUI workload for your target, and a database account with catalog access. This branch pins MAUI Controls 10.0.101. Windows is the currently checked build target; Android, iOS and Mac Catalyst target files exist but have not been built in this revision. The **Try the offline demo** button opens a synthetic three-table schema with no database, model, credentials or network; model review is optional. Configure either a running Ollama endpoint (default `http://localhost:11434`) or a Gemini API key in Settings. Normal profiles use MAUI SecureStorage; explicit isolated Windows profiles use their own current-user DPAPI file. Do not put a key in a URL. See [runtime and audit policy](docs/RUNTIME.md); MAUI has a shorter support schedule than the .NET 10 LTS runtime.
 
 ```powershell
-dotnet build AIDatabaseAnalyzer/AIDatabaseAnalyzer.csproj -f net9.0-windows10.0.19041.0 -p:TargetFrameworks=net9.0-windows10.0.19041.0 -c Debug
+dotnet build AIDatabaseAnalyzer/AIDatabaseAnalyzer.csproj -f net10.0-windows10.0.19041.0 -p:TargetFrameworks=net10.0-windows10.0.19041.0 -c Debug
 dotnet test AIDatabaseAnalyzer.ConnectionTests/AIDatabaseAnalyzer.ConnectionTests.csproj -c Release --filter 'Category!=SqlServer'
 ```
 
@@ -38,11 +38,13 @@ The application never submits sample rows to either model. Before sending schema
 
 ## Local appearance and safe review profile
 
+The 87d493d Windows package and native appearance/export checks below used .NET 9. They are retained as dated evidence. The new 1.3.0-preview.1 .NET 10 candidate must pass its own final-package native acceptance; changing the target framework alone does not establish that acceptance.
+
 Review and Settings offer Light/Dark and 100/150/200% actual text sizing. Save appearance persists only local appearance; model settings, secrets, consent and review state are unaffected. Pages scroll/reflow at a 400-pixel minimum width and use opaque surfaces. Windows content roots receive the saved native theme, Shell labels use the text preference, and native button content is width-constrained before wrapping measurement. A local native review verified the corrected Picker popup/chevron, scaled tabs and a complete two-line connection caption at 400×400/Dark/200%. App-owned Windows alerts now have explicit theme/font and bounded message scrolling; active/inactive title-bar colors follow the palette. These later dialog/title-bar changes still need native acceptance. An explicit Windows `--data-directory "<absolute-empty-directory>"` uses independent profile settings/DPAPI credentials and a visible profile marker; malformed arguments, overlap, links and unsupported files fail closed. Earlier map screenshots certify only that earlier build. See [appearance, profile persistence, tests and native acceptance](docs/APPEARANCE_PROFILE.md).
 
 ## Verification and current limits
 
-- Windows-targeted MAUI build: succeeds locally, 277 warnings/zero errors versus the same-flags 8574924 baseline at 272. Five new XC0022 binding-performance warnings are reported; existing nullable/XAML/MVVM warnings are retained.
+- Windows-targeted .NET 10/MAUI 10.0.101 build: succeeds locally with 277 warnings/zero errors. The .NET 9 87d493d build also reported 277; the earlier 8574924 baseline was 272. Nullable, obsolete API, XAML binding and MVVM analyzer warnings remain visible; none are suppressed.
 - 78 tests pass locally (original 29 plus 49 profile/appearance/request-routing cases), including three actual SQL Server 2022 Express cases: certificate rejection, separate same-named tables, and separately selected/extracted dot-collision tables with raw identities, composite FK/index groups, constraints, triggers, views, routines and optional sampling. Portable tests cover dot/bracket key round trips, provider quotation, safe offline diagram HTML, request chunking, prompt policy and Gemini header handling.
 - Windows 11 native launch, synthetic demo JSON export, the offline WebView relationship map and the five-page format-2 Evidence PDF were exercised locally. All demo columns remain visible in the map. See [native validation](docs/NATIVE_VALIDATION.md).
 - The offline map has light/dark, opaque/translucent and 100/150/200% text controls. Use **List view** for readable, unscaled cards and foreign-key text; use arrow keys, Shift and Home to navigate the diagram. Preferences apply to the current map only. These controls do not change the rest of the MAUI application. See [map accessibility checks and limits](docs/MAP_ACCESSIBILITY.md).

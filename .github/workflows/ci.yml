@@ -1,4 +1,4 @@
-name: Connection and privacy tests
+name: Windows build and connection tests
 on:
   push:
   pull_request:
@@ -9,6 +9,17 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
       - name: Run portable tests
         run: dotnet test AIDatabaseAnalyzer.ConnectionTests/AIDatabaseAnalyzer.ConnectionTests.csproj -c Release --filter "Category!=SqlServer" --nologo
+  windows-app:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Install MAUI Windows workload
+        run: dotnet workload install maui-windows
+      - name: Build Windows app
+        run: dotnet build AIDatabaseAnalyzer/AIDatabaseAnalyzer.csproj -c Release -f net10.0-windows10.0.19041.0 -p:TargetFrameworks=net10.0-windows10.0.19041.0 --nologo
