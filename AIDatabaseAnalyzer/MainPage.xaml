@@ -5,7 +5,6 @@
              BackgroundColor="#EEF4FA">
 
     <ScrollView>
-        <Grid>
             <VerticalStackLayout Padding="22,32,22,48" Spacing="18" MaximumWidthRequest="850" HorizontalOptions="Fill" VerticalOptions="Start">
                 <Border Stroke="#C9DCF0" StrokeThickness="1" BackgroundColor="#E7F6FDFF" Padding="28">
                     <Border.StrokeShape><RoundRectangle CornerRadius="26" /></Border.StrokeShape>
@@ -242,6 +241,5 @@
 
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#245CD6" Margin="0,10,0,0"/>
             </VerticalStackLayout>
-        </Grid>
     </ScrollView>
 </ContentPage>

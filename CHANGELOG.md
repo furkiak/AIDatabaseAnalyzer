@@ -16,3 +16,7 @@
 - Updated the MAUI interface, app identity/icon, README, support matrix, tests and portable CI workflow.
 
 This entry describes local source changes. It does **not** announce a public release or certify a packaged app installation.
+
+### Native preview reachability
+
+- Removed the star-sized wrapper inside the main ScrollView so default-size windows can scroll to schema export actions. Native wheel scrolling and JSON export were verified at 1009×841.
