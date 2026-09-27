@@ -3,11 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="AIDatabaseAnalyzer.VisualizerPage"
              BackgroundColor="#EEF4FA"
-             Shell.PresentationMode="ModalAnimated">
+             Shell.PresentationMode="ModalNotAnimated">
     <Grid RowDefinitions="Auto, *">
         <Grid Grid.Row="0" BackgroundColor="#102E4E" Padding="16" ColumnDefinitions="Auto, *">
             <Button Grid.Column="0" Text="Close" Command="{Binding CloseCommand}"
-                    BackgroundColor="#255B8D" TextColor="White" HeightRequest="36" CornerRadius="11" Padding="14,0" />
+                    BackgroundColor="#255B8D" TextColor="White" MinimumHeightRequest="44" CornerRadius="11" Padding="14,6" />
             <Label Grid.Column="1" Text="Declared relationship map" VerticalOptions="Center"
                    TextColor="White" FontAttributes="Bold" Margin="15,0,0,0" />
         </Grid>
