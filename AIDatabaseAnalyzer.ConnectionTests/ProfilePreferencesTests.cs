@@ -44,6 +44,52 @@ public sealed class ProfilePreferencesTests : IDisposable
         Assert.False(Directory.Exists(_root));
     }
 
+    [Theory, Trait("Category", "WindowsProfile")]
+    [InlineData("Settings", false)]
+    [InlineData("Cache", false)]
+    [InlineData("Settings/nested", false)]
+    [InlineData("Cache/nested", false)]
+    [InlineData("Settings", true)]
+    [InlineData("Cache", true)]
+    [InlineData("Data", true)]
+    [InlineData("", true)]
+    public void WindowsPackageContainerAndEverySiblingAreRejectedBeforeMarkerOrAppearanceWrites(string relative, bool populated)
+    {
+        Assert.True(OperatingSystem.IsWindows());
+        string container = Path.Combine(_root, "owned-publisher", "normal-package");
+        string normalData = Path.Combine(container, "Data");
+        string target = Path.Combine(container, relative.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(target);
+        string sentinel = Path.Combine(container, "owned-sentinel.txt");
+        File.WriteAllText(sentinel, "fixture-owned normal-container sentinel");
+        if (populated)
+        {
+            File.WriteAllText(Path.Combine(target, ".aidb-profile"), "AI Database Analyzer isolated profile v1\n");
+            File.WriteAllText(Path.Combine(target, "appearance.json"), "{\"FormatVersion\":1,\"Theme\":\"Dark\",\"TextScalePercent\":150}");
+        }
+        Dictionary<string, string> Snapshot() => Directory.EnumerateFiles(container, "*", SearchOption.AllDirectories)
+            .ToDictionary(path => Path.GetRelativePath(container, path), path => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))));
+        var before = Snapshot();
+        Assert.Throws<ArgumentException>(() => AppProfile.Resolve(["--data-directory", target], normalData));
+        var after = Snapshot();
+        Assert.Equal(before.OrderBy(x => x.Key), after.OrderBy(x => x.Key));
+        if (!populated) Assert.Empty(Directory.GetFileSystemEntries(target));
+        Assert.Equal("fixture-owned normal-container sentinel", File.ReadAllText(sentinel));
+    }
+
+    [Fact, Trait("Category", "WindowsProfile")]
+    public void WindowsNormalReservationDoesNotExpandIntoPublishersOtherApplication()
+    {
+        Assert.True(OperatingSystem.IsWindows());
+        string publisher = Path.Combine(_root, "owned-publisher");
+        string data = Path.Combine(publisher, "normal-package", "Data");
+        string isolated = Path.Combine(publisher, "different-package", "review");
+        var profile = AppProfile.Resolve(["--data-directory", isolated], data);
+        Assert.True(profile.IsIsolated);
+        new AppearancePreferencesStore(profile).Save(new("Dark", 200));
+        Assert.False(Directory.Exists(Path.Combine(publisher, "normal-package")));
+    }
+
     [Fact]
     public void ExistingUnownedOrUnsupportedMarkerFilesArePreserved()
     {

@@ -16,8 +16,12 @@ public sealed record AppProfile(string DirectoryPath, bool IsIsolated)
             throw new ArgumentException("Use --data-directory followed by one absolute directory. Invalid arguments never open the normal profile.");
         string requested = Path.TrimEndingDirectorySeparator(Path.GetFullPath(arguments[1]));
         string normal = Path.TrimEndingDirectorySeparator(Path.GetFullPath(normalDirectory));
-        if (Within(requested, normal) || Within(normal, requested))
-            throw new ArgumentException("The isolated directory must not overlap the normal application directory.");
+        // Unpackaged MAUI Windows stores Preferences/SecureStorage beside Data, in Settings.
+        // Reserve this app's package container, without reserving its publisher's other apps.
+        string reservedNormal = OperatingSystem.IsWindows() && Path.GetFileName(normal).Equals("Data", StringComparison.OrdinalIgnoreCase)
+            ? Path.GetDirectoryName(normal)! : normal;
+        if (Within(requested, reservedNormal) || Within(reservedNormal, requested))
+            throw new ArgumentException("The isolated directory must not overlap reserved normal application storage.");
         AssertNoLinks(requested);
         var profile = new AppProfile(requested, true);
         string marker = profile.FilePath(".aidb-profile");
