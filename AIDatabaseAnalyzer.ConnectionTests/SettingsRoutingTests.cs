@@ -52,6 +52,35 @@ public sealed class SettingsRoutingTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(_root, "normal")));
     }
 
+    [Theory]
+    [InlineData("null")]
+    [InlineData("\"\"")]
+    [InlineData("\"   \"")]
+    [InlineData("42")]
+    public async Task ProductionOllamaRejectsMissingUsableAnswerInsteadOfReturningSuccess(string answerJson)
+    {
+        var store = new IsolatedSettingsStore(Profile);
+        using var handler = new CaptureHandler("{\"response\":" + answerJson + "}");
+        using var client = new HttpClient(handler);
+        var service = new LlmService(client, store);
+        await Assert.ThrowsAsync<InvalidDataException>(() => service.AskOllamaAsync("owned response fixture"));
+    }
+
+    [Theory, Trait("Category", "WindowsProfile")]
+    [InlineData("null")]
+    [InlineData("\"\"")]
+    [InlineData("\"   \"")]
+    [InlineData("42")]
+    public async Task ProductionGeminiRejectsMissingUsableAnswerInsteadOfReturningSuccess(string answerJson)
+    {
+        var store = new IsolatedSettingsStore(Profile);
+        await store.SetSecretAsync("GeminiApiKey", "owned-synthetic-response-key");
+        using var handler = new CaptureHandler("{\"candidates\":[{\"content\":{\"parts\":[{\"text\":" + answerJson + "}]}}]}");
+        using var client = new HttpClient(handler);
+        var service = new LlmService(client, store);
+        await Assert.ThrowsAsync<InvalidDataException>(() => service.AskGeminiAsync("owned response fixture"));
+    }
+
     private sealed class CaptureHandler(string response) : HttpMessageHandler
     {
         public Uri? Uri { get; private set; }

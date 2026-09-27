@@ -6,8 +6,8 @@ namespace AIDatabaseAnalyzer.ViewModels;
 
 public partial class VisualizerViewModel : ObservableObject
 {
-    [ObservableProperty] private string htmlSource;
-    [ObservableProperty] private string fullJsonSchema;
+    [ObservableProperty] public partial string HtmlSource { get; set; } = string.Empty;
+    [ObservableProperty] public partial string FullJsonSchema { get; set; } = string.Empty;
 
     public VisualizerViewModel(string fullJsonSchema)
     {

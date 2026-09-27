@@ -16,45 +16,45 @@ public partial class MainViewModel : ObservableObject
     private readonly IAppSettingsStore _settings;
     private CancellationTokenSource? _analysisCts;
 
-    [ObservableProperty] private string serverAddress = "localhost";
-    [ObservableProperty] private string port = "";
-    [ObservableProperty] private string username = "";
-    [ObservableProperty] private string password = "";
-    [ObservableProperty] private bool allowUntrustedCertificate;
-    [ObservableProperty] private int selectedEngineIndex = 0;
+    [ObservableProperty] public partial string ServerAddress { get; set; } = "localhost";
+    [ObservableProperty] public partial string Port { get; set; } = "";
+    [ObservableProperty] public partial string Username { get; set; } = "";
+    [ObservableProperty] public partial string Password { get; set; } = "";
+    [ObservableProperty] public partial bool AllowUntrustedCertificate { get; set; }
+    [ObservableProperty] public partial int SelectedEngineIndex { get; set; } = 0;
 
 
-    [ObservableProperty] private bool isBusy;
-    [ObservableProperty] private bool isDemo;
-    [ObservableProperty] private bool isConnectionCardVisible = true;
-    [ObservableProperty] private bool isFiltersCardVisible = false;
-    [ObservableProperty] private bool isSchemaPreviewCardVisible = false;
-    [ObservableProperty] private bool isQuestionsCardVisible = false;
-    [ObservableProperty] private bool isAnalysisProgressCardVisible = false;
-    [ObservableProperty] private bool isAnalysisRunning;
-    [ObservableProperty] private string currentTaskText = "Starting...";
+    [ObservableProperty] public partial bool IsBusy { get; set; }
+    [ObservableProperty] public partial bool IsDemo { get; set; }
+    [ObservableProperty] public partial bool IsConnectionCardVisible { get; set; } = true;
+    [ObservableProperty] public partial bool IsFiltersCardVisible { get; set; } = false;
+    [ObservableProperty] public partial bool IsSchemaPreviewCardVisible { get; set; } = false;
+    [ObservableProperty] public partial bool IsQuestionsCardVisible { get; set; } = false;
+    [ObservableProperty] public partial bool IsAnalysisProgressCardVisible { get; set; } = false;
+    [ObservableProperty] public partial bool IsAnalysisRunning { get; set; }
+    [ObservableProperty] public partial string CurrentTaskText { get; set; } = "Starting...";
 
     public ObservableCollection<string> Databases { get; } = new();
     public ObservableCollection<ComponentSelection> Components { get; } = new();
 
     public ObservableCollection<TableSelection> Tables { get; } = new();
     public ObservableCollection<TableSelection> FilteredTables { get; } = new();
-    [ObservableProperty] private string searchQuery;
-    [ObservableProperty] private string selectedTableText = "0 / 0 tables selected";
+    [ObservableProperty] public partial string SearchQuery { get; set; } = string.Empty;
+    [ObservableProperty] public partial string SelectedTableText { get; set; } = "0 / 0 tables selected";
 
-    [ObservableProperty] private ComponentSelection sampleDataSelection;
+    [ObservableProperty] public partial ComponentSelection SampleDataSelection { get; set; } = new();
 
-    [ObservableProperty] private string extractedJsonSchema;
-    [ObservableProperty] private string schemaStatsText;
-    [ObservableProperty] private string cloudPrivacyText = "AI requests exclude sample rows. Sending metadata to Gemini or a non-local Ollama endpoint requires confirmation.";
-    [ObservableProperty] private Color schemaStatsColor = Color.FromArgb("#212529");
-    [ObservableProperty] private string customQuestionText;
+    [ObservableProperty] public partial string ExtractedJsonSchema { get; set; } = string.Empty;
+    [ObservableProperty] public partial string SchemaStatsText { get; set; } = string.Empty;
+    [ObservableProperty] public partial string CloudPrivacyText { get; set; } = "AI requests exclude sample rows. Sending metadata to Gemini or a non-local Ollama endpoint requires confirmation.";
+    [ObservableProperty] public partial Color SchemaStatsColor { get; set; } = Color.FromArgb("#212529");
+    [ObservableProperty] public partial string CustomQuestionText { get; set; } = string.Empty;
 
     public ObservableCollection<AnalysisTopic> Topics { get; } = new();
     public ObservableCollection<AnalysisTopic> SelectedTopicsForAnalysis { get; } = new();
-    [ObservableProperty] private string selectedTopicText = "0 / 0 topics selected";
+    [ObservableProperty] public partial string SelectedTopicText { get; set; } = "0 / 0 topics selected";
 
-    private string _selectedDatabase;
+    private string _selectedDatabase = string.Empty;
     public string SelectedDatabase
     {
         get => _selectedDatabase;
@@ -65,7 +65,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    public string BaseConnectionString { get; private set; }
+    public string BaseConnectionString { get; private set; } = string.Empty;
     public DbEngine SelectedEngine { get; private set; }
 
     public MainViewModel(DbSchemaService dbService, ILlmService llmService, PdfReportService pdfService, IAppSettingsStore settings)
@@ -122,12 +122,12 @@ public partial class MainViewModel : ObservableObject
         Topics.Add(topic);
     }
 
-    private void OnTableSelectionChanged(object sender, PropertyChangedEventArgs e)
+    private void OnTableSelectionChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(TableSelection.IsSelected)) UpdateTableCount();
     }
 
-    private void OnTopicSelectionChanged(object sender, PropertyChangedEventArgs e)
+    private void OnTopicSelectionChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(AnalysisTopic.IsSelected)) UpdateTopicCount();
     }
@@ -167,7 +167,7 @@ public partial class MainViewModel : ObservableObject
                 IsFiltersCardVisible = true;
             });
         }
-        catch (Exception) { await Application.Current.MainPage.DisplayAppAlertAsync("Connection failed", "Check the server, port (1–65535), credentials and certificate. Untrusted certificates require the local-development option.", "OK"); }
+        catch (Exception) { await Shell.Current.DisplayAppAlertAsync("Connection failed", "Check the server, port (1–65535), credentials and certificate. Untrusted certificates require the local-development option.", "OK"); }
         finally { IsBusy = false; }
     }
 
@@ -206,7 +206,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception)
         {
-            await Application.Current.MainPage.DisplayAppAlertAsync("Demo unavailable", "The packaged demo schema could not be opened.", "OK");
+            await Shell.Current.DisplayAppAlertAsync("Demo unavailable", "The packaged demo schema could not be opened.", "OK");
         }
         finally { IsBusy = false; }
     }
@@ -235,7 +235,7 @@ public partial class MainViewModel : ObservableObject
                 UpdateTableCount();
             });
         }
-        catch (Exception) { MainThread.BeginInvokeOnMainThread(async () => await Application.Current.MainPage.DisplayAppAlertAsync("Connection failed", "Could not list tables. Check access and connection settings.", "OK")); }
+        catch (Exception) { MainThread.BeginInvokeOnMainThread(async () => await Shell.Current.DisplayAppAlertAsync("Connection failed", "Could not list tables. Check access and connection settings.", "OK")); }
         finally { MainThread.BeginInvokeOnMainThread(() => IsBusy = false); }
     }
 
@@ -274,7 +274,7 @@ public partial class MainViewModel : ObservableObject
             IsFiltersCardVisible = false;
             IsSchemaPreviewCardVisible = true;
         }
-        catch (Exception) { await Application.Current.MainPage.DisplayAppAlertAsync("Schema extraction failed", "Check database permissions and the selected scope. No password or connection string is shown.", "OK"); }
+        catch (Exception) { await Shell.Current.DisplayAppAlertAsync("Schema extraction failed", "Check database permissions and the selected scope. No password or connection string is shown.", "OK"); }
         finally { IsBusy = false; }
     }
 
@@ -289,7 +289,7 @@ public partial class MainViewModel : ObservableObject
         IsSchemaPreviewCardVisible = false;
         IsFiltersCardVisible = false;
         IsConnectionCardVisible = true;
-        SelectedDatabase = null;
+        SelectedDatabase = string.Empty;
         Databases.Clear();
         Tables.Clear();
         FilteredTables.Clear();
@@ -307,7 +307,7 @@ public partial class MainViewModel : ObservableObject
             await File.WriteAllTextAsync(path, ExtractedJsonSchema);
             await PresentOutputAsync(path, "Schema snapshot");
         }
-        catch (Exception) { await Application.Current.MainPage.DisplayAppAlertAsync("Export failed", "The local file could not be saved. Check the output folder and available space. No connection string is shown.", "OK"); }
+        catch (Exception) { await Shell.Current.DisplayAppAlertAsync("Export failed", "The local file could not be saved. Check the output folder and available space. No connection string is shown.", "OK"); }
     }
 
     [RelayCommand]
@@ -327,7 +327,7 @@ public partial class MainViewModel : ObservableObject
             _pdfService.GenerateReport(sections, path, SelectedDatabase, modelAssisted: false);
             await PresentOutputAsync(path, "Local evidence PDF (no model, no sample rows)");
         }
-        catch (Exception) { await Application.Current.MainPage.DisplayAppAlertAsync("Export failed", "The local evidence PDF could not be saved. Check the output folder and available space. No model request was sent.", "OK"); }
+        catch (Exception) { await Shell.Current.DisplayAppAlertAsync("Export failed", "The local evidence PDF could not be saved. Check the output folder and available space. No model request was sent.", "OK"); }
     }
 
     [RelayCommand]
@@ -339,7 +339,7 @@ public partial class MainViewModel : ObservableObject
             var visualPage = new VisualizerPage(ExtractedJsonSchema);
             await Shell.Current.Navigation.PushModalAsync(visualPage);
         }
-        catch (Exception ex) { await Application.Current.MainPage.DisplayAppAlertAsync("Error", "Visualization failed: " + ex.Message, "OK"); }
+        catch (Exception ex) { await Shell.Current.DisplayAppAlertAsync("Error", "Visualization failed: " + ex.Message, "OK"); }
     }
 
     [RelayCommand]
@@ -385,14 +385,14 @@ public partial class MainViewModel : ObservableObject
         string analysisSchema = SchemaPrivacy.WithoutSamples(ExtractedJsonSchema);
         if (selected.Any(topic => topic.Prompt.Length > 3_000))
         {
-            await Application.Current.MainPage.DisplayAppAlertAsync("Prompt too long", "Shorten the custom prompt to 3,000 characters or fewer.", "OK");
+            await Shell.Current.DisplayAppAlertAsync("Prompt too long", "Shorten the custom prompt to 3,000 characters or fewer.", "OK");
             return;
         }
         IReadOnlyList<string> schemaChunks;
         try { schemaChunks = SchemaChunker.Split(analysisSchema); }
         catch (InvalidOperationException)
         {
-            await Application.Current.MainPage.DisplayAppAlertAsync("Schema too large", "Exclude optional metadata or select fewer tables. No model request was sent.", "OK");
+            await Shell.Current.DisplayAppAlertAsync("Schema too large", "Exclude optional metadata or select fewer tables. No model request was sent.", "OK");
             return;
         }
         string ollamaUrl = _settings.Get("OllamaUrl", "http://localhost:11434");
@@ -402,7 +402,7 @@ public partial class MainViewModel : ObservableObject
             var destination = isLocal
                 ? $"Ollama endpoint {ollamaUrl}"
                 : $"Google Gemini ({_settings.Get("GeminiModel", "gemini-3.1-flash-lite-preview")})";
-            bool consent = await Application.Current.MainPage.DisplayAppAlertAsync(
+            bool consent = await Shell.Current.DisplayAppAlertAsync(
                 "Send database metadata to a model?",
                 $"Destination: {destination}. Snapshot: {analysisSchema.Length:N0} characters; {schemaChunks.Count} sections repeated for {selected.Count} selected prompts. Sample rows are excluded. Model responses may also be sent for the summary. Review metadata and custom prompts for sensitive names first.",
                 "Send and analyze", "Cancel");
@@ -519,7 +519,7 @@ public partial class MainViewModel : ObservableObject
         {
             IsAnalysisProgressCardVisible = false;
             IsQuestionsCardVisible = true;
-            await Application.Current.MainPage.DisplayAppAlertAsync("Analysis failed", "The report could not be completed. Check the selected model and connection settings.", "OK");
+            await Shell.Current.DisplayAppAlertAsync("Analysis failed", "The report could not be completed. Check the selected model and connection settings.", "OK");
         }
         finally
         {
@@ -549,7 +549,7 @@ public partial class MainViewModel : ObservableObject
     private async Task PresentOutputAsync(string path, string title)
     {
         if (OperatingSystem.IsWindows())
-            await Application.Current.MainPage.DisplayAppAlertAsync("Saved", $"{title} saved to {path}. Review sensitive metadata before sharing.", "OK");
+            await Shell.Current.DisplayAppAlertAsync("Saved", $"{title} saved to {path}. Review sensitive metadata before sharing.", "OK");
         else
             await Microsoft.Maui.ApplicationModel.DataTransfer.Share.Default.RequestAsync(
                 new Microsoft.Maui.ApplicationModel.DataTransfer.ShareFileRequest

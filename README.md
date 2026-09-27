@@ -44,8 +44,8 @@ Review and Settings offer Light/Dark and 100/150/200% actual text sizing. Save a
 
 ## Verification and current limits
 
-- Windows-targeted .NET 10/MAUI 10.0.101 build: succeeds locally with 277 warnings/zero errors. The .NET 9 87d493d build also reported 277; the earlier 8574924 baseline was 272. Nullable, obsolete API, XAML binding and MVVM analyzer warnings remain visible; none are suppressed.
-- 78 tests pass locally (original 29 plus 49 profile/appearance/request-routing cases), including three actual SQL Server 2022 Express cases: certificate rejection, separate same-named tables, and separately selected/extracted dot-collision tables with raw identities, composite FK/index groups, constraints, triggers, views, routines and optional sampling. Portable tests cover dot/bracket key round trips, provider quotation, safe offline diagram HTML, request chunking, prompt policy and Gemini header handling.
+- Windows-targeted .NET 10/MAUI 10.0.101 build: succeeds locally with zero warnings and zero errors. Three pages/four item templates now declare binding types; 44 observable members use C# partial properties with the original public names/defaults. The app creates its Shell through `CreateWindow`; dialogs use the current Shell. The prior .NET 9 build and initial .NET 10 migration each reported 277 warnings. Warnings now stop the build; none are suppressed. This does not certify NativeAOT, performance or native accessibility.
+- 86 tests pass locally (original 29 plus 49 profile/appearance/request-routing and eight model-response cases), including three actual SQL Server 2022 Express cases: certificate rejection, separate same-named tables, and separately selected/extracted dot-collision tables with raw identities, composite FK/index groups, constraints, triggers, views, routines and optional sampling. Portable tests cover dot/bracket key round trips, provider quotation, safe offline diagram HTML, request chunking, prompt policy and Gemini header handling. Eight new cases failed before the response fix: null, empty, whitespace and non-text Ollama/Gemini answers now fail explicitly rather than returning a successful empty result. They exercise the production service with synthetic HTTP handlers, not real models.
 - Windows 11 native launch, synthetic demo JSON export, the offline WebView relationship map and the five-page format-2 Evidence PDF were exercised locally. All demo columns remain visible in the map. See [native validation](docs/NATIVE_VALIDATION.md).
 - The offline map has light/dark, opaque/translucent and 100/150/200% text controls. Use **List view** for readable, unscaled cards and foreign-key text; use arrow keys, Shift and Home to navigate the diagram. Preferences apply to the current map only. These controls do not change the rest of the MAUI application. See [map accessibility checks and limits](docs/MAP_ACCESSIBILITY.md).
 - PostgreSQL/MySQL query paths, real model calls, fresh-machine installation and a full screen-reader/scaling pass are **not yet verified**.
@@ -56,6 +56,8 @@ See [LICENSE](LICENSE) (MIT) and the [platform support matrix](docs/SUPPORT.md).
 ---
 
 ## Türkçe
+
+1.3.0-preview.1, .NET 10/MAUI 10.0.101 kullanır; Windows derlemesi uyarısızdır ve 86 test geçer. Boş veya yanlış türde model yanıtlarını reddeden sekiz kontrol eski kodda başarısızdı. Aşağıdaki native görünüm/dışa aktarma kayıtları önceki .NET 9 paketine aittir; yeni runtime kendi paket kabulünü bekler.
 
 AI Database Analyzer, seçilen tabloların **şema metadatasını** inceler ve Ollama veya Gemini ile kanıt sınırları açıkça belirtilmiş hipotezler üretir. Gerçek sorgu planı, yetki, satır sayısı, uygulama davranışı ve uyumluluk denetimi yapmaz. PDF önerilerini veritabanında değişiklik yapmadan önce DBA ile doğrulayın.
 

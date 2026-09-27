@@ -6,22 +6,22 @@ public enum AnalysisStatus { Pending, Processing, Completed, Error }
 
 public partial class AnalysisTopic : ObservableObject
 {
-    [ObservableProperty] private string title;
-    [ObservableProperty] private string prompt;
-    [ObservableProperty] private bool isSelected = true;
-    [ObservableProperty] private bool isCustom = false;
-    [ObservableProperty] private AnalysisStatus status = AnalysisStatus.Pending;
+    [ObservableProperty] public partial string Title { get; set; } = string.Empty;
+    [ObservableProperty] public partial string Prompt { get; set; } = string.Empty;
+    [ObservableProperty] public partial bool IsSelected { get; set; } = true;
+    [ObservableProperty] public partial bool IsCustom { get; set; } = false;
+    [ObservableProperty] public partial AnalysisStatus Status { get; set; } = AnalysisStatus.Pending;
 }
 
 public partial class ComponentSelection : ObservableObject
 {
-    [ObservableProperty] private string name;
-    [ObservableProperty] private bool isSelected = true;
+    [ObservableProperty] public partial string Name { get; set; } = string.Empty;
+    [ObservableProperty] public partial bool IsSelected { get; set; } = true;
 }
 
 public partial class TableSelection : ObservableObject
 {
     public Services.DatabaseObjectIdentity? Identity { get; init; }
-    [ObservableProperty] private string name;
-    [ObservableProperty] private bool isSelected = true;
+    [ObservableProperty] public partial string Name { get; set; } = string.Empty;
+    [ObservableProperty] public partial bool IsSelected { get; set; } = true;
 }

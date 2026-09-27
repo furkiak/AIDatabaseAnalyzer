@@ -11,12 +11,11 @@ public partial class App : Application
         _profile = profile;
         Appearance = appearance;
         Appearance.ApplySaved();
-        MainPage = new AppShell();
     }
 
-    protected override Window CreateWindow(IActivationState activationState)
+    protected override Window CreateWindow(IActivationState? activationState)
     {
-        var window = base.CreateWindow(activationState);
+        var window = new Window(new AppShell());
         window.Title = _profile.IsIsolated ? "AI Database Analyzer — ISOLATED PROFILE" : "AI Database Analyzer";
          
         const int newWidth = 1024;

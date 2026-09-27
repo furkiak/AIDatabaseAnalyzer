@@ -13,15 +13,15 @@ public partial class SettingsViewModel : ObservableObject
     private readonly HttpClient _httpClient;
     private readonly IAppSettingsStore _settings;
 
-    [ObservableProperty] private bool isOllamaSelected;
-    [ObservableProperty] private bool isGeminiSelected;
-    [ObservableProperty] private bool isOllamaConfigVisible;
-    [ObservableProperty] private bool isGeminiConfigVisible;
-    [ObservableProperty] private string ollamaUrl;
-    [ObservableProperty] private string ollamaModel;
-    [ObservableProperty] private string geminiApiKey;
-    [ObservableProperty] private string geminiModel;
-    [ObservableProperty] private bool isTesting;
+    [ObservableProperty] public partial bool IsOllamaSelected { get; set; }
+    [ObservableProperty] public partial bool IsGeminiSelected { get; set; }
+    [ObservableProperty] public partial bool IsOllamaConfigVisible { get; set; }
+    [ObservableProperty] public partial bool IsGeminiConfigVisible { get; set; }
+    [ObservableProperty] public partial string OllamaUrl { get; set; } = string.Empty;
+    [ObservableProperty] public partial string OllamaModel { get; set; } = string.Empty;
+    [ObservableProperty] public partial string GeminiApiKey { get; set; } = string.Empty;
+    [ObservableProperty] public partial string GeminiModel { get; set; } = string.Empty;
+    [ObservableProperty] public partial bool IsTesting { get; set; }
     private bool _canSaveSettings;
     public bool CanSaveSettings
     {
@@ -91,7 +91,7 @@ public partial class SettingsViewModel : ObservableObject
             else
                 _settings.RemoveSecret("GeminiApiKey");
 
-            await Application.Current.MainPage.DisplayAppAlertAsync("Success", "Settings saved securely.", "OK");
+            await Shell.Current.DisplayAppAlertAsync("Success", "Settings saved securely.", "OK");
         }
         catch (Exception)
         {
@@ -110,17 +110,17 @@ public partial class SettingsViewModel : ObservableObject
             {
                 var res = await _httpClient.GetAsync($"{OllamaUrl?.TrimEnd('/')}/api/tags");
                 res.EnsureSuccessStatusCode();
-                await Application.Current.MainPage.DisplayAppAlertAsync("Success", "Ollama is active!", "OK");
+                await Shell.Current.DisplayAppAlertAsync("Success", "Ollama is active!", "OK");
             }
             else
             {
                 using var request = GeminiApiRequest.Create(GeminiModel, GeminiApiKey, "Connection test");
                 using var res = await _httpClient.SendAsync(request);
                 if (!res.IsSuccessStatusCode) throw new Exception($"Gemini returned {(int)res.StatusCode}.");
-                await Application.Current.MainPage.DisplayAppAlertAsync("Success", "Gemini connection OK!", "OK");
+                await Shell.Current.DisplayAppAlertAsync("Success", "Gemini connection OK!", "OK");
             }
         }
-        catch (Exception) { await Application.Current.MainPage.DisplayAppAlertAsync("Connection test failed", "Check the endpoint, model, network and API key. No credential details are shown.", "OK"); }
+        catch (Exception) { await Shell.Current.DisplayAppAlertAsync("Connection test failed", "Check the endpoint, model, network and API key. No credential details are shown.", "OK"); }
         finally { IsTesting = false; }
     }
 }

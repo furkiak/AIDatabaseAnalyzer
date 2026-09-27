@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:local="clr-namespace:AIDatabaseAnalyzer" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" x:Class="AIDatabaseAnalyzer.MainPage" BackgroundColor="{DynamicResource PageColor}">
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:local="clr-namespace:AIDatabaseAnalyzer" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" xmlns:vm="clr-namespace:AIDatabaseAnalyzer.ViewModels" xmlns:models="clr-namespace:AIDatabaseAnalyzer.Models" x:Class="AIDatabaseAnalyzer.MainPage" x:DataType="vm:MainViewModel" BackgroundColor="{DynamicResource PageColor}">
     <ScrollView>
         <VerticalStackLayout Padding="14,20,14,32" Spacing="18" MaximumWidthRequest="850" HorizontalOptions="Fill" VerticalOptions="Start">
             <local:AppearanceView />
@@ -99,7 +99,7 @@
                     <Label Text="INCLUDE COMPONENTS" FontSize="{DynamicResource Font13}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" Margin="0,10,0,0" LineBreakMode="WordWrap" />
                     <VerticalStackLayout Margin="0,0,0,5" BindableLayout.ItemsSource="{Binding Components}">
                         <BindableLayout.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="models:ComponentSelection">
                                 <Grid Margin="0,0,10,10" ColumnDefinitions="Auto,*" ColumnSpacing="8">
                                     <CheckBox IsChecked="{Binding IsSelected}" Color="{DynamicResource AccentColor}" Grid.Column="0" SemanticProperties.Description="{Binding Name}" />
                                     <Label Text="{Binding Name}" VerticalOptions="Center" TextColor="{DynamicResource TextColor}" FontSize="{DynamicResource Font13}" LineBreakMode="WordWrap" Grid.Column="1" />
@@ -129,7 +129,7 @@
                         <ScrollView>
                             <VerticalStackLayout Padding="10" Spacing="0" BindableLayout.ItemsSource="{Binding FilteredTables}">
                                 <BindableLayout.ItemTemplate>
-                                    <DataTemplate>
+                                    <DataTemplate x:DataType="models:TableSelection">
                                         <Grid Margin="0,2" ColumnDefinitions="Auto,*" ColumnSpacing="8">
                                             <CheckBox IsChecked="{Binding IsSelected}" Color="{DynamicResource AccentColor}" Grid.Column="0" SemanticProperties.Description="{Binding Name}" />
                                             <Label Text="{Binding Name}" VerticalOptions="Center" TextColor="{DynamicResource TextColor}" FontSize="{DynamicResource Font13}" LineBreakMode="WordWrap" Grid.Column="1" />
@@ -186,11 +186,11 @@
                         </Border.StrokeShape>
                         <VerticalStackLayout Spacing="2" Padding="12" BindableLayout.ItemsSource="{Binding Topics}">
                             <BindableLayout.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="models:AnalysisTopic">
                                     <Grid Margin="0,4" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                                         <CheckBox IsChecked="{Binding IsSelected}" Color="{DynamicResource AccentColor}" Grid.Column="0" SemanticProperties.Description="{Binding Title}" />
                                         <Label Text="{Binding Title}" VerticalOptions="Center" TextColor="{DynamicResource TextColor}" FontSize="{DynamicResource Font13}" FontAttributes="Bold" LineBreakMode="WordWrap" Grid.Column="1" />
-                                        <Button Text="×" Command="{Binding BindingContext.RemoveTopicCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}" CommandParameter="{Binding .}" IsVisible="{Binding IsCustom}" BackgroundColor="{DynamicResource DangerColor}" TextColor="{DynamicResource ButtonTextColor}" Padding="14,10" CornerRadius="4" VerticalOptions="Center" Margin="10,0,0,0" MinimumHeightRequest="48" Grid.Column="2" SemanticProperties.Description="Remove custom analysis prompt" />
+                                        <Button Text="×" Command="{Binding RemoveTopicCommand, Source={RelativeSource AncestorType={x:Type vm:MainViewModel}}, x:DataType=vm:MainViewModel}" CommandParameter="{Binding .}" IsVisible="{Binding IsCustom}" BackgroundColor="{DynamicResource DangerColor}" TextColor="{DynamicResource ButtonTextColor}" Padding="14,10" CornerRadius="4" VerticalOptions="Center" Margin="10,0,0,0" MinimumHeightRequest="48" Grid.Column="2" SemanticProperties.Description="Remove custom analysis prompt" />
                                     </Grid>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
@@ -221,7 +221,7 @@
                         </Border.StrokeShape>
                         <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding SelectedTopicsForAnalysis}">
                             <BindableLayout.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="models:AnalysisTopic">
                                     <VerticalStackLayout Spacing="10">
                                         <Label Text="{Binding Status}" FontSize="{DynamicResource Font11}" FontAttributes="Bold" VerticalOptions="Center" TextColor="{DynamicResource AccentColor}" LineBreakMode="WordWrap" />
                                         <Label Text="{Binding Title}" FontSize="{DynamicResource Font13}" TextColor="{DynamicResource TextColor}" VerticalOptions="Center" LineBreakMode="WordWrap" />

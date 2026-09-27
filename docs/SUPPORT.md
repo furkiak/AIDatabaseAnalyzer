@@ -4,7 +4,7 @@ Snapshot: 27 September 2026.
 
 | Target | Build evidence | Runtime/installation evidence | Status |
 | --- | --- | --- | --- |
-| Windows 10 19041+ on .NET 10 / MAUI 10.0.101 | Local Release build passed; 277 warnings, zero errors; 78 tests with three actual SQL Server cases, zero skips; map helper builds without warnings | New-runtime final-package native acceptance and fresh-machine installation pending. 87d493d .NET 9 native demo/dialog/JSON/PDF checks remain historical | Development preview |
+| Windows 10 19041+ on .NET 10 / MAUI 10.0.101 | Local Release build passed; zero warnings/errors; 86 tests with three actual SQL Server cases, zero skips; map helper builds without warnings | New-runtime final-package native acceptance and fresh-machine installation pending. 87d493d .NET 9 native demo/dialog/JSON/PDF checks remain historical | Development preview |
 | Android | .NET 10 target declared; no app build in this revision | None | Experimental |
 | iOS | Target declared; Windows host cannot validate iOS build/run | None | Experimental |
 | Mac Catalyst | Target declared; Windows host cannot validate Mac build/run | None | Experimental |

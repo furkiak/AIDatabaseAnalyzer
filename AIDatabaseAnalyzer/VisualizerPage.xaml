@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" x:Class="AIDatabaseAnalyzer.VisualizerPage" BackgroundColor="{DynamicResource PageColor}" Shell.PresentationMode="ModalNotAnimated">
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" xmlns:vm="clr-namespace:AIDatabaseAnalyzer.ViewModels" x:Class="AIDatabaseAnalyzer.VisualizerPage" x:DataType="vm:VisualizerViewModel" BackgroundColor="{DynamicResource PageColor}" Shell.PresentationMode="ModalNotAnimated">
     <Grid RowDefinitions="Auto, *">
         <VerticalStackLayout Grid.Row="0" BackgroundColor="{DynamicResource SurfaceColor}" Padding="16" Spacing="10">
             <Button Text="Close" Command="{Binding CloseCommand}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" MinimumHeightRequest="48" CornerRadius="11" Padding="14,10" />

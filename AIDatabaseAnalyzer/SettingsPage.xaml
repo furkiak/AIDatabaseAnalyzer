@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:local="clr-namespace:AIDatabaseAnalyzer" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" x:Class="AIDatabaseAnalyzer.SettingsPage" BackgroundColor="{DynamicResource PageColor}">
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:local="clr-namespace:AIDatabaseAnalyzer" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" xmlns:vm="clr-namespace:AIDatabaseAnalyzer.ViewModels" x:Class="AIDatabaseAnalyzer.SettingsPage" x:DataType="vm:SettingsViewModel" BackgroundColor="{DynamicResource PageColor}">
     <ScrollView>
         <VerticalStackLayout Spacing="10">
             <VerticalStackLayout Padding="14,20,14,32" Spacing="18" MaximumWidthRequest="650" HorizontalOptions="Fill" VerticalOptions="Start">

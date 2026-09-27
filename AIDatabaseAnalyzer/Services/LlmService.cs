@@ -17,7 +17,7 @@ public class LlmService : ILlmService
 
     public async Task<string> AskGeminiAsync(string prompt, CancellationToken cancellationToken = default)
     {
-        string apiKey = await _settings.GetSecretAsync("GeminiApiKey");
+        string? apiKey = await _settings.GetSecretAsync("GeminiApiKey");
         string modelName = _settings.Get("GeminiModel", "gemini-3.1-flash-lite-preview");
 
         if (string.IsNullOrWhiteSpace(apiKey)) throw new Exception("Gemini API Key is missing. Please check settings.");
@@ -28,7 +28,7 @@ public class LlmService : ILlmService
 
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
         using var doc = JsonDocument.Parse(responseJson);
-        return doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();
+        return ReadAnswer(doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text"));
     }
 
     public async Task<string> AskOllamaAsync(string prompt, CancellationToken cancellationToken = default)
@@ -51,6 +51,14 @@ public class LlmService : ILlmService
 
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
         using var doc = JsonDocument.Parse(responseJson);
-        return doc.RootElement.GetProperty("response").GetString();
+        return ReadAnswer(doc.RootElement.GetProperty("response"));
+    }
+
+    private static string ReadAnswer(JsonElement element)
+    {
+        string? answer = element.ValueKind == JsonValueKind.String ? element.GetString() : null;
+        if (string.IsNullOrWhiteSpace(answer))
+            throw new InvalidDataException("The model response did not contain a non-empty text answer.");
+        return answer;
     }
 }

@@ -6,6 +6,14 @@ without selecting .NET 11 or a preview SDK. The Windows runtime candidate is
 1.3.0-preview.1; it does not change metadata format 2 or isolated-profile formats.
 Existing profiles must not be deleted to perform an upgrade.
 
+The initial .NET 10 Windows build retained 277 warnings. Typed page/item bindings,
+partial observable properties, explicit window creation and nullable response
+handling now give a local build with zero warnings/errors and 86 passing tests.
+Eight empty/non-text answer regressions failed before the production parser fix.
+Compiler warnings fail builds; no warning category is suppressed. These source
+checks do not establish NativeAOT, measured performance or final-package native
+acceptance.
+
 .NET 10's LTS lifetime does **not** extend the lifetime of MAUI 10. Microsoft's
 [MAUI support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/maui),
 checked on 27 September 2026, lists MAUI 10.0.101 and support through 11 May 2027;
