@@ -21,6 +21,7 @@ public partial class ComponentSelection : ObservableObject
 
 public partial class TableSelection : ObservableObject
 {
+    public Services.DatabaseObjectIdentity? Identity { get; init; }
     [ObservableProperty] private string name;
     [ObservableProperty] private bool isSelected = true;
 }

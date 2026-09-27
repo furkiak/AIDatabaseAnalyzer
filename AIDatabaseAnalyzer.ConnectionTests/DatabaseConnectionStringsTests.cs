@@ -5,6 +5,7 @@ using Npgsql;
 
 namespace AIDatabaseAnalyzer.ConnectionTests;
 
+[Collection("SQL Server fixtures")]
 public class DatabaseConnectionStringsTests
 {
     [Fact]

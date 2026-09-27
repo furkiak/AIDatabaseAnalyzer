@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 
 namespace AIDatabaseAnalyzer.ConnectionTests;
 
+[Collection("SQL Server fixtures")]
 public class SchemaExtractionTests
 {
     [Theory]
@@ -43,7 +44,7 @@ public class SchemaExtractionTests
             var tables = await service.GetTablesAsync(DbEngine.SqlServer, connString);
             Assert.Contains($"{one}.Items", tables);
             Assert.Contains($"{two}.Items", tables);
-            Assert.Contains($"{one}.Odd]Name", tables);
+            Assert.Contains(new DatabaseObjectIdentity(one, "Odd]Name").Key, tables);
 
             var json = await service.ExtractSchemaAsJsonAsync(DbEngine.SqlServer, connString,
                 new SchemaFilterConfig
@@ -62,7 +63,7 @@ public class SchemaExtractionTests
             Assert.True(root.GetProperty("Tables").TryGetProperty($"{two}.Items", out _));
             Assert.Equal("FIRST_SCHEMA", root.GetProperty("SampleData").GetProperty($"{one}.Items")[0].GetProperty("Marker").GetString());
             Assert.Equal("SECOND_SCHEMA", root.GetProperty("SampleData").GetProperty($"{two}.Items")[0].GetProperty("Marker").GetString());
-            Assert.Equal("ESCAPED_NAME", root.GetProperty("SampleData").GetProperty($"{one}.Odd]Name")[0].GetProperty("Marker").GetString());
+            Assert.Equal("ESCAPED_NAME", root.GetProperty("SampleData").GetProperty(new DatabaseObjectIdentity(one, "Odd]Name").Key)[0].GetProperty("Marker").GetString());
             Assert.Contains($"{one}.Missing", root.GetProperty("SampleErrors")[0].GetString());
             var fk = root.GetProperty("ForeignKeys").EnumerateArray().Single(f => f.GetProperty("Name").GetString() == $"FK_{suffix}");
             Assert.Equal($"{one}.Parent", fk.GetProperty("To").GetString());

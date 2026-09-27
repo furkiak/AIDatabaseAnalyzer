@@ -188,7 +188,7 @@ public partial class MainViewModel : ObservableObject
             FilteredTables.Clear();
             foreach (var property in document.RootElement.GetProperty("Tables").EnumerateObject())
             {
-                var table = new TableSelection { Name = property.Name, IsSelected = true };
+                var table = new TableSelection { Name = property.Name, Identity = DatabaseObjectIdentity.ParseKey(property.Name), IsSelected = true };
                 table.PropertyChanged += OnTableSelectionChanged;
                 Tables.Add(table);
                 FilteredTables.Add(table);
@@ -215,7 +215,7 @@ public partial class MainViewModel : ObservableObject
         try
         {
             string fullConnString = DatabaseConnectionStrings.WithDatabase(SelectedEngine, BaseConnectionString, dbName);
-            var tables = await _dbService.GetTablesAsync(SelectedEngine, fullConnString);
+            var tables = await _dbService.GetTableIdentitiesAsync(SelectedEngine, fullConnString);
 
             MainThread.BeginInvokeOnMainThread(() =>
             {
@@ -225,7 +225,7 @@ public partial class MainViewModel : ObservableObject
 
                 foreach (var t in tables)
                 {
-                    var sel = new TableSelection { Name = t, IsSelected = true };
+                    var sel = new TableSelection { Name = t.Key, Identity = t, IsSelected = true };
                     sel.PropertyChanged += OnTableSelectionChanged;
                     Tables.Add(sel);
                     FilteredTables.Add(sel);
@@ -246,7 +246,8 @@ public partial class MainViewModel : ObservableObject
         {
             var filter = new SchemaFilterConfig
             {
-                SelectedTables = Tables.Where(t => t.IsSelected).Select(t => t.Name).ToList(),
+                SelectedTableIdentities = Tables.Where(t => t.IsSelected)
+                    .Select(t => t.Identity ?? throw new InvalidOperationException("Table identity is missing; reload the table list.")).ToList(),
                 IncludeViews = Components.First(c => c.Name == "Views").IsSelected,
                 IncludeIndexes = Components.First(c => c.Name == "Indexes").IsSelected,
                 IncludeTriggers = Components.First(c => c.Name == "Triggers").IsSelected,

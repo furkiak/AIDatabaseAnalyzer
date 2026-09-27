@@ -27,63 +27,67 @@ public class DbSchemaService : IDbSchemaService
     }
 
     public async Task<List<string>> GetTablesAsync(DbEngine engine, string connString)
+        => (await GetTableIdentitiesAsync(engine, connString)).Select(identity => identity.Key).ToList();
+
+    public async Task<List<DatabaseObjectIdentity>> GetTableIdentitiesAsync(DbEngine engine, string connString)
     {
-        var tbs = new List<string>();
-        string q = engine switch
-        {
-            DbEngine.SqlServer => "SELECT s.name + '.' + t.name FROM sys.tables t JOIN sys.schemas s ON s.schema_id = t.schema_id ORDER BY s.name, t.name",
-            DbEngine.PostgreSql => "SELECT schemaname || '.' || tablename FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema') ORDER BY schemaname, tablename",
-            _ => "SELECT CONCAT(TABLE_SCHEMA, '.', TABLE_NAME) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME"
-        };
+        var tbs = new List<DatabaseObjectIdentity>();
+        string q = SqlQueries.TableList(engine);
         using var conn = GetConnection(engine, connString); await conn.OpenAsync();
         using var cmd = conn.CreateCommand(); cmd.CommandText = q;
-        using var r = await cmd.ExecuteReaderAsync(); while (await r.ReadAsync()) tbs.Add(r.GetString(0));
+        using var r = await cmd.ExecuteReaderAsync(); while (await r.ReadAsync()) tbs.Add(ReadIdentity(r, 0));
         return tbs;
     }
 
     public async Task<string> ExtractSchemaAsJsonAsync(DbEngine engine, string connectionString, SchemaFilterConfig filter)
     {
-        var schemaData = new Dictionary<string, object>();
+        var schemaData = new Dictionary<string, object>
+        {
+            ["MetadataFormat"] = new { Version = 2, IdentityFields = new[] { "Schema", "Name" },
+                KeyFormat = "schema.name; bracket-quote both parts if either contains dot or brackets; escape closing bracket as ]]",
+                ObjectScope = "Selected tables and their outgoing relationships; visible views and routines are database-wide when enabled" }
+        };
         string grandQuery = engine switch { DbEngine.SqlServer => SqlQueries.SqlServerSchema, DbEngine.PostgreSql => SqlQueries.PostgreSqlSchema, _ => SqlQueries.MySqlSchema };
 
+        var selectedTables = filter.SelectedTableIdentities.Concat(filter.SelectedTables.Select(DatabaseObjectIdentity.ParseKey)).ToHashSet();
         using var conn = GetConnection(engine, connectionString);
         await conn.OpenAsync();
         using var cmd = conn.CreateCommand(); cmd.CommandText = grandQuery;
-        var selectedTables = filter.SelectedTables.ToHashSet(StringComparer.Ordinal);
-        var quotedTables = new Dictionary<string, string>(StringComparer.Ordinal);
+        var knownTables = new HashSet<DatabaseObjectIdentity>();
 
         using (var reader = await cmd.ExecuteReaderAsync())
         {
          
             var tables = new Dictionary<string, List<ColumnMetadata>>(StringComparer.Ordinal);
+            var tableIdentities = new Dictionary<string, DatabaseObjectIdentity>(StringComparer.Ordinal);
             while (await reader.ReadAsync())
             {
-                string tName = reader.GetString(0);
-                if (selectedTables.Contains(tName))
+                var identity = ReadIdentity(reader, 0);
+                if (selectedTables.Contains(identity))
                 {
-                    var quotedName = QuoteTable(engine, reader.GetString(4), reader.GetString(5));
-                    if (quotedTables.TryGetValue(tName, out var existingName) && existingName != quotedName)
-                        throw new InvalidOperationException("Two tables have the same display name. Narrow the schema scope.");
-                    quotedTables[tName] = quotedName;
+                    var tName = identity.Key;
+                    knownTables.Add(identity);
+                    tableIdentities[tName] = identity;
                     if (!tables.ContainsKey(tName)) tables[tName] = new List<ColumnMetadata>();
-                    tables[tName].Add(new ColumnMetadata(reader.GetString(1), reader.GetString(2),
-                        reader.IsDBNull(3) ? null : Convert.ToInt32(reader.GetValue(3)),
-                        Convert.ToBoolean(reader.GetValue(6)), Convert.ToBoolean(reader.GetValue(7))));
+                    tables[tName].Add(new ColumnMetadata(reader.GetString(2), reader.GetString(3),
+                        reader.IsDBNull(4) ? null : Convert.ToInt32(reader.GetValue(4)),
+                        Convert.ToBoolean(reader.GetValue(5)), Convert.ToBoolean(reader.GetValue(6))));
                 }
             }
             schemaData["Tables"] = tables;
+            schemaData["TableIdentities"] = tableIdentities;
 
          
             await reader.NextResultAsync();
-            var fks = new Dictionary<(string Name, string From, string To), ForeignKeyMetadata>();
+            var fks = new Dictionary<(string Name, DatabaseObjectIdentity From, DatabaseObjectIdentity To), ForeignKeyMetadata>();
             while (await reader.ReadAsync())
             {
-                var from = reader.GetString(1);
+                var from = ReadIdentity(reader, 1);
                 if (!selectedTables.Contains(from)) continue;
-                var key = (Name: reader.GetString(0), From: from, To: reader.GetString(3));
+                var key = (Name: reader.GetString(0), From: from, To: ReadIdentity(reader, 4));
                 if (!fks.TryGetValue(key, out var fk))
-                    fks[key] = fk = new ForeignKeyMetadata { Name = key.Name, From = key.From, To = key.To };
-                fk.Columns.Add(new ForeignKeyColumn(reader.GetString(2), reader.GetString(4), Convert.ToInt32(reader.GetValue(5))));
+                    fks[key] = fk = new ForeignKeyMetadata { Name = key.Name, FromIdentity = key.From, ToIdentity = key.To };
+                fk.Columns.Add(new ForeignKeyColumn(reader.GetString(3), reader.GetString(6), Convert.ToInt32(reader.GetValue(7))));
             }
             foreach (var fk in fks.Values) fk.Columns.Sort((a, b) => a.Ordinal.CompareTo(b.Ordinal));
             schemaData["ForeignKeys"] = fks.Values.ToList();
@@ -92,23 +96,23 @@ public class DbSchemaService : IDbSchemaService
             await reader.NextResultAsync();
             if (filter.IncludeIndexes)
             {
-                var indexes = new Dictionary<(string Table, string Name), IndexMetadata>();
+                var indexes = new Dictionary<(DatabaseObjectIdentity Table, string Name), IndexMetadata>();
                 while (await reader.ReadAsync())
                 {
-                    var table = reader.GetString(0);
+                    var table = ReadIdentity(reader, 0);
                     if (!selectedTables.Contains(table)) continue;
-                    var key = (Table: table, Name: reader.GetString(1));
+                    var key = (Table: table, Name: reader.GetString(2));
                     if (!indexes.TryGetValue(key, out var index))
                         indexes[key] = index = new IndexMetadata
                         {
-                            Table = table, Name = key.Name, Type = reader.GetString(2),
-                            Unique = Convert.ToBoolean(reader.GetValue(3)),
-                            Filter = reader.IsDBNull(7) ? null : reader.GetString(7),
-                            Definition = reader.IsDBNull(8) ? null : reader.GetString(8)
+                            TableIdentity = table, Name = key.Name, Type = reader.GetString(3),
+                            Unique = Convert.ToBoolean(reader.GetValue(4)),
+                            Filter = reader.IsDBNull(8) ? null : reader.GetString(8),
+                            Definition = reader.IsDBNull(9) ? null : reader.GetString(9)
                         };
-                    index.Columns.Add(new IndexColumn(reader.IsDBNull(4) ? null : reader.GetString(4),
-                        reader.IsDBNull(5) ? 0 : Convert.ToInt32(reader.GetValue(5)),
-                        !reader.IsDBNull(6) && Convert.ToBoolean(reader.GetValue(6))));
+                    index.Columns.Add(new IndexColumn(reader.IsDBNull(5) ? null : reader.GetString(5),
+                        reader.IsDBNull(6) ? 0 : Convert.ToInt32(reader.GetValue(6)),
+                        !reader.IsDBNull(7) && Convert.ToBoolean(reader.GetValue(7))));
                 }
                 foreach (var index in indexes.Values)
                     index.Columns.Sort((a, b) => a.Included == b.Included
@@ -120,8 +124,14 @@ public class DbSchemaService : IDbSchemaService
             await reader.NextResultAsync();
             if (filter.IncludeTriggers)
             {
-                var trg = new List<object>();
-                while (await reader.ReadAsync()) if (selectedTables.Contains(reader.GetString(1))) trg.Add(new { Name = reader.GetString(0), Table = reader.GetString(1) });
+                var trg = new List<TriggerMetadata>();
+                while (await reader.ReadAsync())
+                {
+                    var table = ReadIdentity(reader, 2);
+                    if (selectedTables.Contains(table)) trg.Add(new TriggerMetadata(
+                        new DatabaseObjectIdentity(reader.GetString(1), reader.GetString(0)), table,
+                        reader.IsDBNull(4) ? null : Convert.ToBoolean(reader.GetValue(4))));
+                }
                 schemaData["Triggers"] = trg;
             }
 
@@ -130,8 +140,15 @@ public class DbSchemaService : IDbSchemaService
             if (filter.IncludeViews)
             {
                 var vws = new List<string>();
-                while (await reader.ReadAsync()) vws.Add(reader.GetString(0));
+                var identities = new Dictionary<string, DatabaseObjectIdentity>(StringComparer.Ordinal);
+                while (await reader.ReadAsync())
+                {
+                    var identity = ReadIdentity(reader, 0);
+                    vws.Add(identity.Key);
+                    identities[identity.Key] = identity;
+                }
                 schemaData["Views"] = vws;
+                schemaData["ViewIdentities"] = identities;
             }
 
            
@@ -139,13 +156,17 @@ public class DbSchemaService : IDbSchemaService
             if (filter.IncludeSps)
             {
                 var sps = new Dictionary<string, List<string>>();
+                var identities = new Dictionary<string, DatabaseObjectIdentity>(StringComparer.Ordinal);
                 while (await reader.ReadAsync())
                 {
-                    string sName = reader.GetString(0);
+                    var identity = ReadIdentity(reader, 0);
+                    string sName = identity.Key;
+                    identities[sName] = identity;
                     if (!sps.ContainsKey(sName)) sps[sName] = new List<string>();
-                    if (!reader.IsDBNull(1)) sps[sName].Add(reader.GetString(1));
+                    if (!reader.IsDBNull(2)) sps[sName].Add(reader.GetString(2));
                 }
                 schemaData["StoredProcedures"] = sps;
+                schemaData["RoutineIdentities"] = identities;
             }
 
           
@@ -153,9 +174,12 @@ public class DbSchemaService : IDbSchemaService
             if (filter.IncludeConstraints)
             {
                 var cns = new List<ConstraintMetadata>();
-                while (await reader.ReadAsync()) if (selectedTables.Contains(reader.GetString(0)))
-                    cns.Add(new ConstraintMetadata(reader.GetString(0), reader.GetString(1), reader.GetString(2),
-                        reader.IsDBNull(3) ? null : reader.GetString(3)));
+                while (await reader.ReadAsync())
+                {
+                    var table = ReadIdentity(reader, 0);
+                    if (selectedTables.Contains(table)) cns.Add(new ConstraintMetadata(table,
+                        reader.GetString(2), reader.GetString(3), reader.IsDBNull(4) ? null : reader.GetString(4)));
+                }
                 schemaData["Constraints"] = cns;
             }
         }
@@ -163,36 +187,45 @@ public class DbSchemaService : IDbSchemaService
        
         if (filter.IncludeSampleData)
         {
-            var samples = new Dictionary<string, List<Dictionary<string, object>>>();
+            var samples = new Dictionary<string, List<Dictionary<string, object?>>>();
             var sampleErrors = new List<string>();
             foreach (var table in selectedTables)
             {
-                if (!quotedTables.TryGetValue(table, out var quotedTable))
+                if (!knownTables.Contains(table))
                 {
-                    sampleErrors.Add($"{table}: not found in selected table metadata");
+                    sampleErrors.Add($"{table.Key}: not found in selected table metadata");
                     continue;
                 }
-                string sQ = engine == DbEngine.SqlServer ? $"SELECT TOP 3 * FROM {quotedTable}" : $"SELECT * FROM {quotedTable} LIMIT 3";
+                string sQ = SampleQuery(engine, table);
                 try
                 {
                     using var sCmd = conn.CreateCommand(); sCmd.CommandText = sQ; sCmd.CommandTimeout = 5;
                     using var sR = await sCmd.ExecuteReaderAsync();
-                    var rows = new List<Dictionary<string, object>>();
+                    var rows = new List<Dictionary<string, object?>>();
                     while (await sR.ReadAsync())
                     {
-                        var row = new Dictionary<string, object>();
+                        var row = new Dictionary<string, object?>();
                         for (int i = 0; i < sR.FieldCount; i++) row[sR.GetName(i)] = sR.IsDBNull(i) ? null : sR.GetValue(i);
                         rows.Add(row);
                     }
-                    samples[table] = rows;
+                    samples[table.Key] = rows;
                 }
-                catch (DbException) { sampleErrors.Add($"{table}: sample unavailable (permission, timeout or provider error)"); }
+                catch (DbException) { sampleErrors.Add($"{table.Key}: sample unavailable (permission, timeout or provider error)"); }
             }
             schemaData["SampleData"] = samples;
             if (sampleErrors.Count > 0) schemaData["SampleErrors"] = sampleErrors;
         }
 
         return JsonSerializer.Serialize(schemaData, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private static DatabaseObjectIdentity ReadIdentity(DbDataReader reader, int schemaOrdinal) =>
+        new(reader.GetString(schemaOrdinal), reader.GetString(schemaOrdinal + 1));
+
+    public static string SampleQuery(DbEngine engine, DatabaseObjectIdentity table)
+    {
+        var quoted = QuoteTable(engine, table.Schema, table.Name);
+        return engine == DbEngine.SqlServer ? $"SELECT TOP 3 * FROM {quoted}" : $"SELECT * FROM {quoted} LIMIT 3";
     }
 
     public static string QuoteTable(DbEngine engine, string schema, string table) => engine switch

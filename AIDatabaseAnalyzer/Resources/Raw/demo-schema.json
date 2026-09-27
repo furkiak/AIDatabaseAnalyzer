@@ -1,5 +1,11 @@
 {
   "Demo": true,
+  "MetadataFormat": { "Version": 2, "IdentityFields": ["Schema", "Name"], "KeyFormat": "schema.name; bracket-quote both parts for dots/brackets and escape closing bracket as ]]", "ObjectScope": "Synthetic offline fixture" },
+  "TableIdentities": {
+    "dbo.Customers": { "Schema": "dbo", "Name": "Customers" },
+    "dbo.Orders": { "Schema": "dbo", "Name": "Orders" },
+    "dbo.OrderLines": { "Schema": "dbo", "Name": "OrderLines" }
+  },
   "Tables": {
     "dbo.Customers": [
       { "Column": "CustomerId", "Type": "int", "MaxLen": 4, "IsNullable": false, "IsPrimaryKey": true },
@@ -20,17 +26,19 @@
     ]
   },
   "ForeignKeys": [
-    { "Name": "FK_Orders_Customers", "From": "dbo.Orders", "To": "dbo.Customers", "Columns": [ { "From": "CustomerId", "To": "CustomerId", "Ordinal": 1 } ] },
-    { "Name": "FK_OrderLines_Orders", "From": "dbo.OrderLines", "To": "dbo.Orders", "Columns": [ { "From": "OrderId", "To": "OrderId", "Ordinal": 1 } ] }
+    { "Name": "FK_Orders_Customers", "From": "dbo.Orders", "To": "dbo.Customers", "FromIdentity": { "Schema": "dbo", "Name": "Orders" }, "ToIdentity": { "Schema": "dbo", "Name": "Customers" }, "Columns": [ { "From": "CustomerId", "To": "CustomerId", "Ordinal": 1 } ] },
+    { "Name": "FK_OrderLines_Orders", "From": "dbo.OrderLines", "To": "dbo.Orders", "FromIdentity": { "Schema": "dbo", "Name": "OrderLines" }, "ToIdentity": { "Schema": "dbo", "Name": "Orders" }, "Columns": [ { "From": "OrderId", "To": "OrderId", "Ordinal": 1 } ] }
   ],
   "Indexes": [
-    { "Table": "dbo.Orders", "Name": "IX_Orders_CustomerId_CreatedUtc", "Type": "NONCLUSTERED", "Unique": false, "Filter": null, "Definition": null, "Columns": [ { "Name": "CustomerId", "Ordinal": 1, "Included": false }, { "Name": "CreatedUtc", "Ordinal": 2, "Included": false } ] }
+    { "Table": "dbo.Orders", "TableIdentity": { "Schema": "dbo", "Name": "Orders" }, "Name": "IX_Orders_CustomerId_CreatedUtc", "Type": "NONCLUSTERED", "Unique": false, "Filter": null, "Definition": null, "Columns": [ { "Name": "CustomerId", "Ordinal": 1, "Included": false }, { "Name": "CreatedUtc", "Ordinal": 2, "Included": false } ] }
   ],
   "Triggers": [],
   "Views": [],
+  "ViewIdentities": {},
   "StoredProcedures": {},
+  "RoutineIdentities": {},
   "Constraints": [
-    { "Table": "dbo.Orders", "Name": "CK_Orders_Status", "Type": "CHECK", "Definition": "Status IN ('Pending','Paid','Cancelled')" },
-    { "Table": "dbo.OrderLines", "Name": "CK_OrderLines_Quantity", "Type": "CHECK", "Definition": "Quantity > 0" }
+    { "Table": "dbo.Orders", "TableIdentity": { "Schema": "dbo", "Name": "Orders" }, "Name": "CK_Orders_Status", "Type": "CHECK", "Definition": "Status IN ('Pending','Paid','Cancelled')" },
+    { "Table": "dbo.OrderLines", "TableIdentity": { "Schema": "dbo", "Name": "OrderLines" }, "Name": "CK_OrderLines_Quantity", "Type": "CHECK", "Definition": "Quantity > 0" }
   ]
 }

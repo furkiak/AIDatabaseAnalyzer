@@ -2,6 +2,9 @@
 
 ## Unreleased — local development branch
 
+- Carry separate immutable schema/name identity through table selection, catalog extraction, relationships, metadata export and provider sampling. Keep ordinary keys stable and escape dot/bracket-containing names without delimiter collisions.
+- Add format-2 raw identity manifests and typed FK/index/constraint/trigger identities; preserve existing table arrays and readable reference fields. Reject ambiguous legacy selections instead of guessing.
+- Verify separate selection of real tempdb delimiter collisions, same-named composite FK/index groups, constraints/triggers/views/routines, sampling and an expected failing ambiguous-key mutation. Keep live PostgreSQL/MySQL and updated-package native checks explicit.
 - Added a local Evidence PDF with a source-field manifest and sample-free schema JSON; no model request is required. Export names are unique even within one second.
 - Fixed clipped relationship-map columns and supplied the Windows window title. Verified the offline demo, native JSON export and four-page PDF on Windows 11.
 

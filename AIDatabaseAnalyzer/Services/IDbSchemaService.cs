@@ -5,6 +5,7 @@ namespace AIDatabaseAnalyzer.Services;
 public class SchemaFilterConfig
 {
     public List<string> SelectedTables { get; set; } = new();
+    public List<DatabaseObjectIdentity> SelectedTableIdentities { get; set; } = new();
     public bool IncludeViews { get; set; } = true;
     public bool IncludeIndexes { get; set; } = true;
     public bool IncludeTriggers { get; set; } = true;
@@ -17,5 +18,7 @@ public interface IDbSchemaService
 {
     Task<List<string>> GetDatabasesAsync(DbEngine engine, string connString);
     Task<List<string>> GetTablesAsync(DbEngine engine, string connString);
+    async Task<List<DatabaseObjectIdentity>> GetTableIdentitiesAsync(DbEngine engine, string connString) =>
+        (await GetTablesAsync(engine, connString)).Select(DatabaseObjectIdentity.ParseKey).ToList();
     Task<string> ExtractSchemaAsJsonAsync(DbEngine engine, string connString, SchemaFilterConfig filter);
 }

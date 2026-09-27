@@ -28,6 +28,7 @@
     <Compile Include="..\AIDatabaseAnalyzer\Services\SchemaEvidenceSummary.cs" Link="Services\SchemaEvidenceSummary.cs" />
     <Compile Include="..\AIDatabaseAnalyzer\Services\SchemaChunker.cs" Link="Services\SchemaChunker.cs" />
     <Compile Include="..\AIDatabaseAnalyzer\Services\SchemaMetadata.cs" Link="Services\SchemaMetadata.cs" />
+    <Compile Include="..\AIDatabaseAnalyzer\Services\DatabaseObjectIdentity.cs" Link="Services\DatabaseObjectIdentity.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\AIDatabaseAnalyzer\Resources\Raw\demo-schema.json" Link="demo-schema.json" CopyToOutputDirectory="PreserveNewest" />
