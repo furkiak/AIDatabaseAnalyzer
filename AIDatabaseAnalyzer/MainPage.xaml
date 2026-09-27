@@ -161,6 +161,7 @@
                         <FlexLayout Wrap="Wrap" JustifyContent="SpaceBetween" Margin="0,10,0,0">
                             <Button Text="Start Over" Command="{Binding StartOverCommand}" BackgroundColor="#F1F5F9" TextColor="#475569" CornerRadius="13" HeightRequest="40" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="13" />
                             <Button Text="Export JSON" Command="{Binding ExportCommand}" BackgroundColor="#F1F5F9" TextColor="#475569" CornerRadius="13" HeightRequest="40" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="13" />
+                            <Button Text="Evidence PDF" Command="{Binding ExportEvidencePdfCommand}" BackgroundColor="#F1F5F9" TextColor="#475569" CornerRadius="13" HeightRequest="40" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="13" />
                             <Button Text="Visualize" Command="{Binding VisualizeCommand}" BackgroundColor="#F1F5F9" TextColor="#0F172A" CornerRadius="13" HeightRequest="40" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="13" />
                             <Button Text="Approve" Command="{Binding ApproveSchemaCommand}" BackgroundColor="#245CD6" TextColor="White" CornerRadius="13" HeightRequest="40" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="13" />
                         </FlexLayout>

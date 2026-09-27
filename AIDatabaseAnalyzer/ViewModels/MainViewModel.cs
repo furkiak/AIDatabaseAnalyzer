@@ -298,9 +298,33 @@ public partial class MainViewModel : ObservableObject
     private async Task ExportAsync()
     {
         if (string.IsNullOrWhiteSpace(ExtractedJsonSchema)) return;
-        string path = CreateOutputPath("Schema", ".json");
-        await File.WriteAllTextAsync(path, ExtractedJsonSchema);
-        await PresentOutputAsync(path, "Schema snapshot");
+        try
+        {
+            string path = CreateOutputPath("Schema", ".json");
+            await File.WriteAllTextAsync(path, ExtractedJsonSchema);
+            await PresentOutputAsync(path, "Schema snapshot");
+        }
+        catch (Exception) { await Application.Current.MainPage.DisplayAlert("Export failed", "The local file could not be saved. Check the output folder and available space. No connection string is shown.", "OK"); }
+    }
+
+    [RelayCommand]
+    private async Task ExportEvidencePdfAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ExtractedJsonSchema)) return;
+        try
+        {
+            var metadata = SchemaPrivacy.WithoutSamples(ExtractedJsonSchema);
+            var sections = new List<ReportSection>
+            {
+                new() { Title = IsDemo ? "Synthetic offline demo" : "Local schema snapshot", Content = "This export calls no model and excludes sample rows. It records available catalog metadata, not performance, permission or compliance findings. Empty or omitted fields do not establish absence. Review object names and definitions before sharing." },
+                new() { Title = "Source field manifest", Content = SchemaEvidenceSummary.Create(metadata) },
+                new() { Title = "Metadata JSON", Content = metadata }
+            };
+            var path = CreateOutputPath("Evidence", ".pdf");
+            _pdfService.GenerateReport(sections, path, SelectedDatabase, modelAssisted: false);
+            await PresentOutputAsync(path, "Local evidence PDF (no model, no sample rows)");
+        }
+        catch (Exception) { await Application.Current.MainPage.DisplayAlert("Export failed", "The local evidence PDF could not be saved. Check the output folder and available space. No model request was sent.", "OK"); }
     }
 
     [RelayCommand]
@@ -516,7 +540,7 @@ public partial class MainViewModel : ObservableObject
         var database = string.IsNullOrWhiteSpace(SelectedDatabase) ? "Database" : SelectedDatabase;
         var safeName = string.Concat(database.Select(character =>
             Path.GetInvalidFileNameChars().Contains(character) || character is '/' or '\\' or ':' ? '_' : character));
-        return Path.Combine(directory, $"{safeName}_{purpose}_{DateTime.UtcNow:yyyyMMdd_HHmmss}{extension}");
+        return Path.Combine(directory, $"{safeName}_{purpose}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}{extension}");
     }
 
     private async Task PresentOutputAsync(string path, string title)

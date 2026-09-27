@@ -12,7 +12,7 @@ public class ReportSection
 
 public class PdfReportService
 {
-    public void GenerateReport(List<ReportSection> sections, string outputPath, string dbName)
+    public void GenerateReport(List<ReportSection> sections, string outputPath, string dbName, bool modelAssisted = true)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -25,7 +25,7 @@ public class PdfReportService
                 page.PageColor(Colors.White);
                 page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Arial"));
 
-                page.Header().Text($"Schema review: {dbName}")
+                page.Header().Text($"{(modelAssisted ? "Schema review" : "Schema evidence snapshot")}: {dbName}")
                     .SemiBold().FontSize(20).FontColor(Colors.Blue.Darken3);
 
                 page.Content().PaddingVertical(1, Unit.Centimetre).Column(col =>
@@ -42,7 +42,9 @@ public class PdfReportService
 
                 page.Footer().AlignCenter().Text(x =>
                 {
-                    x.Span("AI-assisted hypotheses · verify before changing data  |  Page ");
+                    x.Span(modelAssisted
+                        ? "AI-assisted hypotheses · verify before changing data  |  Page "
+                        : "Local metadata only · no model request · no sample rows  |  Page ");
                     x.CurrentPageNumber();
                 });
             });

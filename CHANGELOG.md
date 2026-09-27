@@ -2,6 +2,9 @@
 
 ## Unreleased — local development branch
 
+- Added a local Evidence PDF with a source-field manifest and sample-free schema JSON; no model request is required. Export names are unique even within one second.
+- Fixed clipped relationship-map columns and supplied the Windows window title. Verified the offline demo, native JSON export and four-page PDF on Windows 11.
+
 - Replaced hand-built connection strings and permissive TLS defaults with provider builders and an explicit local certificate exception.
 - Made every remote model run show its recipient and metadata scope; excluded sample rows from all model requests and removed the Gemini key from the URL.
 - Replaced overclaiming analysis prompts with evidence-limited schema topics, source paths, hypothesis labels and input budgeting.

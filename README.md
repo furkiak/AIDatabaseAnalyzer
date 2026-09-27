@@ -1,6 +1,6 @@
 # AI Database Analyzer
 
-An evidence-limited, AI-assisted review of database **schema metadata**. Connect to SQL Server, PostgreSQL or MySQL, select tables and metadata components, inspect the JSON locally, then ask a configured Ollama or Gemini model for hypotheses and verification questions. The app can also draw an offline relationship map and export a PDF review. Try the packaged synthetic demo before connecting to a database.
+An evidence-limited, AI-assisted review of database **schema metadata**. Connect to SQL Server, PostgreSQL or MySQL, select tables and metadata components, inspect the JSON locally, then ask a configured Ollama or Gemini model for hypotheses and verification questions. The app can also draw an offline relationship map and export either a model-assisted review or a **local Evidence PDF** without calling a model. Try the packaged synthetic demo before connecting to a database.
 
 > The generated report is a starting point for a DBA review. This app does not collect execution plans, real query workloads, permissions, row counts, view/trigger/routine bodies or production incident data. It cannot establish a performance defect, security vulnerability or compliance violation from a schema snapshot alone.
 
@@ -28,17 +28,18 @@ dotnet build AIDatabaseAnalyzer/AIDatabaseAnalyzer.csproj -f net9.0-windows10.0.
 dotnet test AIDatabaseAnalyzer.ConnectionTests/AIDatabaseAnalyzer.ConnectionTests.csproj -c Release --filter 'Category!=SqlServer'
 ```
 
-For the isolated SQL Server tests, set `AIDB_TEST_SQLSERVER` to your local test instance and run the test project without the filter. The tests create two uniquely named schemas and tables in `tempdb`, inspect them and remove them in `finally`.
+For the isolated SQL Server tests, set `AIDB_TEST_SQLSERVER` to a **server/instance name**, for example `$env:AIDB_TEST_SQLSERVER = ".\SQLEXPRESS"`, then run the test project without the filter. This variable is not a connection string. The tests create two uniquely named schemas and tables in `tempdb`, inspect them and remove them in `finally`.
 
 Enter a server and optional port. SQL Server uses Windows integrated authentication when user name is blank. Normal connections require a validated TLS certificate: SQL Server `Encrypt=Mandatory`, PostgreSQL `VerifyFull`, MySQL `VerifyFull`. The explicit “local development” checkbox keeps encryption but accepts an untrusted certificate; leave it off for production. Use a minimally privileged read-only database account, especially when enabling sample rows.
 
-The application never submits sample rows to either model. Before sending schema metadata to Gemini or a non-loopback Ollama endpoint, it shows the destination, model or endpoint, metadata size, and prompt count and asks for per-run consent. Model responses are sent again for the summary. Review database names, object names and custom prompts before consent; these can still contain confidential information. The JSON export and PDF contain database metadata. Windows saves them on the Desktop; other platforms use the system share sheet from app storage. No telemetry is implemented in this repository.
+The application never submits sample rows to either model. Before sending schema metadata to Gemini or a non-loopback Ollama endpoint, it shows the destination, model or endpoint, metadata size, and prompt count and asks for per-run consent. Model responses are sent again for the summary. Review database names, object names and custom prompts before consent; these can still contain confidential information. The JSON export and PDF contain database metadata. **Evidence PDF** excludes sample rows and records the collected source fields; it makes no model request. Windows export names include a unique suffix to prevent same-second overwrites. Windows saves them on the Desktop; other platforms use the system share sheet from app storage. No telemetry is implemented in this repository.
 
 ## Verification and current limits
 
 - Windows-targeted MAUI build: succeeds locally, with existing nullable/XAML analyzer warnings.
 - 22 tests pass locally, including SQL Server 2022 Express certificate rejection, separate same-named tables in two schemas, optional sample rows, provider identifier quoting, composite FK/index metadata, safe offline diagram HTML, request chunking, prompt policy and Gemini header handling.
-- PostgreSQL/MySQL query paths, real model calls, packaged app launch and a full screen-reader/visual pass are **not yet verified**.
+- Windows 11 native launch, synthetic demo JSON export, the offline WebView relationship map and the four-page Evidence PDF were exercised locally. All demo columns remain visible in the map. See [native validation](docs/NATIVE_VALIDATION.md).
+- PostgreSQL/MySQL query paths, real model calls, fresh-machine installation and a full screen-reader/scaling pass are **not yet verified**.
 - The SQL metadata key uses `schema.table`; unusual identifiers containing dots can collide and cause extraction to stop. The exporter does not modify the database, but optional sampling executes read queries.
 
 See [LICENSE](LICENSE) (MIT) and the [platform support matrix](docs/SUPPORT.md). Issues and reproducible database fixtures are welcome; never attach live schema exports or credentials to public issues.
@@ -49,4 +50,4 @@ See [LICENSE](LICENSE) (MIT) and the [platform support matrix](docs/SUPPORT.md).
 
 AI Database Analyzer, seçilen tabloların **şema metadatasını** inceler ve Ollama veya Gemini ile kanıt sınırları açıkça belirtilmiş hipotezler üretir. Gerçek sorgu planı, yetki, satır sayısı, uygulama davranışı ve uyumluluk denetimi yapmaz. PDF önerilerini veritabanında değişiklik yapmadan önce DBA ile doğrulayın.
 
-Örnek satır toplama isteğe bağlıdır. Satırlar yerel önizleme/JSON dışa aktarmada görünebilir, ancak hiçbir model isteğine eklenmez. Gemini veya yerel olmayan Ollama adresine metadata gönderilmeden önce her çalıştırmada hedef ve kapsam gösterilir; onay gerekir. Üretimde doğrulanmış TLS sertifikası ve salt-okunur hesap kullanın. Derleme ve test komutları yukarıdadır.
+Örnek satır toplama isteğe bağlıdır. Satırlar yerel önizleme/JSON dışa aktarmada görünebilir, ancak hiçbir model isteğine eklenmez. Gemini veya yerel olmayan Ollama adresine metadata gönderilmeden önce her çalıştırmada hedef ve kapsam gösterilir; onay gerekir. Üretimde doğrulanmış TLS sertifikası ve salt-okunur hesap kullanın. **Evidence PDF**, örnek satırları çıkartarak toplanan alanların dökümünü ve şema JSON'unu yerel olarak raporlar; model çağırmaz. Windows 11'de gerçek pencere, demo, çevrimdışı diyagram, JSON ve dört sayfalık PDF kontrol edildi. Temiz makine kurulumu ve gerçek model sonucu henüz doğrulanmadı. Derleme ve test komutları yukarıdadır; SQL test değişkeni bağlantı dizesi değil sunucu/instance adıdır.

@@ -11,6 +11,7 @@ public partial class App : Application
     protected override Window CreateWindow(IActivationState activationState)
     {
         var window = base.CreateWindow(activationState);
+        window.Title = "AI Database Analyzer";
          
         const int newWidth = 1024;
         const int newHeight = 850;

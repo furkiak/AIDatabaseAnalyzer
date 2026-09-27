@@ -65,7 +65,7 @@ public static class SchemaDiagramHtml
             #scene { position: absolute; transform-origin: 0 0; width: max-content; }
             #cards { position: relative; display: grid; grid-template-columns: repeat(3, 284px); align-items: start; gap: 72px 76px; padding: 112px 72px 70px; }
             #links { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
-            .card { z-index: 1; position: relative; width: 284px; min-height: 108px; padding: 0; text-align: left; border: 1px solid #c4dbee; border-radius: 20px; background: rgba(255,255,255,.94); box-shadow: 0 12px 28px rgba(28,75,124,.09); overflow: hidden; }
+            .card { z-index: 1; position: relative; width: 284px; height: auto; min-height: 108px; padding: 0; text-align: left; border: 1px solid #c4dbee; border-radius: 20px; background: rgba(255,255,255,.94); box-shadow: 0 12px 28px rgba(28,75,124,.09); overflow: hidden; }
             .card:hover, .card:focus-visible { border-color: #71a7df; box-shadow: 0 16px 30px rgba(28,75,124,.17); transform: translateY(-2px); }
             .card-title { display: block; padding: 15px 17px; background: linear-gradient(110deg, #153d68, #2568a7); color: white; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
             .column { display: flex; justify-content: space-between; gap: 12px; padding: 7px 17px; border-top: 1px solid #edf2f7; font-size: 12px; }

@@ -27,7 +27,7 @@ public static class SchemaEvidenceSummary
         if (root.TryGetProperty("StoredProcedures", out var procedures) && procedures.ValueKind == JsonValueKind.Object)
             foreach (var procedure in procedures.EnumerateObject())
                 summary.AppendLine($"- StoredProcedures[{JsonSerializer.Serialize(procedure.Name)}]: parameter names only");
-        summary.AppendLine("No model saw SampleData. Omitted fields are not evidence of absence.");
+        summary.AppendLine("SampleData is excluded from this review payload. Omitted fields are not evidence of absence.");
         return summary.ToString();
     }
 

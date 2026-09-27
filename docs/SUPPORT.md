@@ -1,10 +1,10 @@
 # Platform and runtime support
 
-Snapshot: 22 September 2026.
+Snapshot: 27 September 2026.
 
 | Target | Build evidence | Runtime/installation evidence | Status |
 | --- | --- | --- | --- |
-| Windows 10 19041+ on .NET 9 | Local `dotnet build -f net9.0-windows10.0.19041.0` passed; 254 existing nullable/XAML warnings | Packaged app and interactive UI not yet tested | Development preview |
+| Windows 10 19041+ on .NET 9 | Local `dotnet build -f net9.0-windows10.0.19041.0` passed; existing nullable/XAML/MVVM analyzer warnings (274 in the native Release build) | Windows 11 launch; native offline demo, JSON export, WebView diagram and Evidence PDF. No fresh-machine install | Development preview |
 | Android | Target declared; matching .NET 9 workload not available in this test setup | None | Experimental |
 | iOS | Target declared; Windows host cannot validate iOS build/run | None | Experimental |
 | Mac Catalyst | Target declared; Windows host cannot validate Mac build/run | None | Experimental |
