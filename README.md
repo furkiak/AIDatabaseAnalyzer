@@ -17,7 +17,7 @@ An evidence-limited, AI-assisted review of database **schema metadata**. Connect
 | Constraints | Check/default/unique/primary-key metadata and provider definitions where available | Enforcement coverage and business meaning are not assessed |
 | Sample rows | Optional, up to three rows per selected table | Local preview, visualization and JSON export only; **excluded from every AI request** |
 
-Five built-in review topics keep claims within this evidence: inventory, declared relationships, index metadata, constraint questions and an object verification plan. Custom prompts are also wrapped in the same evidence rules. Model output remains unverified even when it contains a path citation.
+Five built-in review topics keep claims within this evidence: inventory, declared relationships, index metadata, constraint questions and an object verification plan. Custom prompts are also wrapped in the same evidence rules. Adding one refreshes the selected/total count immediately. Model output remains unverified even when it contains a path citation.
 
 ## Run
 

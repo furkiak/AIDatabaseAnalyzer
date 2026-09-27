@@ -120,6 +120,7 @@ public partial class MainViewModel : ObservableObject
     {
         topic.PropertyChanged += OnTopicSelectionChanged;
         Topics.Add(topic);
+        UpdateTopicCount();
     }
 
     private void OnTableSelectionChanged(object? sender, PropertyChangedEventArgs e)
