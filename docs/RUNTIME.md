@@ -35,17 +35,16 @@ both owned test processes ended. The four known normal-profile file hashes or
 absence states stayed unchanged. No personal history was copied and no model
 request was made.
 
-The dated local records are outside this repository, under
-`E:\GithubDosyalar_Kurtarma_2026-09-27\_GithubProfesyonelHedef\evidence`:
+The dated validation records are retained with the local release candidate,
+outside this source repository:
 
 - `AIDatabaseAnalyzer-package-444b863-net10.json` binds the code commit, ZIP,
   clean-test/publish proof and native result.
 - `Runtime-net10-2026-09-27\AIDatabaseAnalyzer-444b863\native-result.json`
   records the exact-package observations and remaining boundaries.
 
-This documentation follow-up records those existing results. It does not rebuild,
-repackage or rerun the accepted code/ZIP; later documentation-only HEADs are not
-new runtime acceptance. The wider `87d493d`/.NET 9 minimum-window, dialog/keyboard
+These results apply to the identified code commit and ZIP; later documentation
+changes do not constitute another runtime validation. The wider `87d493d`/.NET 9 minimum-window, dialog/keyboard
 and ReadOnly matrix remains historical. Native Remove Prompt, two-button model
 consent, all dialogs/inactive title, DPI/screen readers, additional live database
 or model providers, NativeAOT, other OS and fresh-machine checks remain open.

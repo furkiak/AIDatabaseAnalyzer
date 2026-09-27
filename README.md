@@ -1,10 +1,14 @@
 # AI Database Analyzer
 
-An evidence-limited, AI-assisted review of database **schema metadata**. Connect to SQL Server, PostgreSQL or MySQL, select tables and metadata components, inspect the JSON locally, then ask a configured Ollama or Gemini model for hypotheses and verification questions. The app can also draw an offline relationship map and export either a model-assisted review or a **local Evidence PDF** without calling a model. Try the packaged synthetic demo before connecting to a database.
+Inspect a database schema before asking a model to comment on it. AI Database Analyzer reads selected metadata from SQL Server, PostgreSQL or MySQL, shows exactly what was collected, and can ask your configured Ollama or Gemini model for review questions. The offline relationship map and local **Evidence PDF** work without a model. Start with the built-in three-table demo; no database or credentials are needed.
+
+![Offline relationship map in the Windows application, showing three synthetic tables](docs/images/offline-map.jpg)
+
+*Windows application capture using the built-in synthetic schema. It shows declared foreign keys, not inferred relationships or a live database. The capture predates the current .NET 10 package; the [native validation record](docs/NATIVE_VALIDATION.md) identifies its build.*
 
 > The generated report is a starting point for a DBA review. This app does not collect execution plans, real query workloads, permissions, row counts, view/trigger/routine bodies or production incident data. It cannot establish a performance defect, security vulnerability or compliance violation from a schema snapshot alone.
 
-![Schema review workflow](docs/workflow.svg)
+[Review workflow diagram](docs/workflow.svg) · [More application captures](docs/NATIVE_VALIDATION.md)
 
 ## What the current version actually reads
 

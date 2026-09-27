@@ -34,13 +34,18 @@ White primary-button text against `#2258C3` is 6.46:1. Accent and warning text a
 
 ## Explicit isolated profile
 
-For a local Windows review, supply a fresh **absolute** directory:
+For a local Windows review, supply a fresh **absolute** directory. This example
+uses a path under your temporary folder:
 
 ```powershell
-.\AIDatabaseAnalyzer.exe --data-directory "E:\GithubDosyalar_Kurtarma_2026-09-27\AIDatabaseAnalyzer\TestResults\native-appearance-profile"
+$reviewProfile = Join-Path $env:TEMP 'AIDatabaseAnalyzer-Review'
+.\AIDatabaseAnalyzer.exe --data-directory $reviewProfile
 ```
 
-This example is a launch instruction, not evidence that the new application was launched. The window title and appearance card identify the isolated profile. There is no automatic demo, database connection or model request: select **Try the offline demo** explicitly. The synthetic demo has three tables/two foreign keys and no sample rows.
+Use a new, empty directory. The window title and appearance card identify the
+isolated profile. There is no automatic demo, database connection or model
+request: select **Try the offline demo** explicitly. The synthetic demo has
+three tables/two foreign keys and no sample rows.
 
 - No arguments retain the existing normal MAUI Preferences/SecureStorage model settings. The new normal appearance file defaults to Light/100% without rewriting legacy model preferences.
 - An isolated profile never initializes the normal settings adapter. It has its own versioned `settings.json`, `appearance.json` and `.aidb-profile` ownership marker. An API key, if explicitly saved, is encrypted in `secrets.dpapi.json` using **Windows current-user DPAPI**; plaintext fallback is absent. This is user/machine protection, not a portable credential vault. No real key is needed for the offline demo or appearance review.
@@ -50,19 +55,31 @@ This example is a launch instruction, not evidence that the new application was 
 
 Profile isolation covers application-owned appearance/model settings and credentials. It is not an operating-system sandbox: database inputs remain transient, exports retain their existing Desktop/share destination, and MAUI/WebView/runtime storage is managed by the framework. No OS settings, startup entry or account is changed by appearance saving.
 
-## Current evidence and native handover
+## Earlier appearance evidence and remaining checks
 
-Windows tests pass **78/78, zero failed/skipped**: all original 29 cases plus 49 profile/appearance/request-routing cases. The existing certificate-rejection SQL case and both uniquely owned `tempdb` extraction fixtures ran against `AIDB_TEST_SQLSERVER=.\SQLEXPRESS`. New cases include digest-preserving rejection of empty or previously marked Settings/Cache folders inside the normal Windows package container, reservation limited to this package (not other apps under its publisher), actual Windows DPAPI restart/byte preservation, read-only/locked atomic-save failures, malformed/forward-format/duplicate JSON preservation, junction/hard-link rejection, zero normal-store-factory access, separate profiles and real numeric font sizes. The two new production LlmService request-path cases use a **synthetic HttpMessageHandler** and prove settings/request routing, not real model or network behavior.
+The earlier .NET 9 appearance revision passed **78/78 Windows tests**, zero
+failed/skipped: the original 29 cases plus 49 profile, appearance and
+request-routing cases. Its SQL fixture used `AIDB_TEST_SQLSERVER=.\SQLEXPRESS`.
+The added tests covered actual Windows DPAPI, profile isolation, atomic-save
+failures, malformed or forward-format data, linked paths and real font sizes.
+Two model-request tests used a synthetic HTTP handler, not a real model.
+The newer .NET 10 package passed **86/86 tests** and selected native flows; see
+[runtime validation](RUNTIME.md) for the exact commit, package and limits.
 
 Four controlled mutations produced expected failures: narrowing the normal-package reservation back to Data only (6), removing font-save validation (3), selecting normal storage for an isolated profile (1), and freezing the Ollama model instead of reloading settings (1). Restoring production sources returned all 78 tests to green. No cosmetic XAML-string tests were added.
 
-Windows Release build/publish evidence is recorded under ignored `TestResults`; warnings are retained. The previous 8574924 source was rebuilt separately with the same flags: **272 warnings, zero errors**. The updated build has **277 warnings, zero errors**: five additional XC0022 binding-performance warnings (four semantic-selection bindings and the model-settings load-status binding), with no additional C# warning category. Existing nullable/obsolete/MVVM/compiled-binding warnings remain unresolved. Non-Windows build/runtime and fresh-machine installation are not verified.
+The initial .NET 9 appearance source still had **277 build warnings**. The
+later .NET 10 revision resolved the compiler and binding warnings and built
+with zero warnings. Non-Windows runtime and fresh-machine installation remain
+unverified; neither historical build result should be mistaken for those checks.
 
-Root native acceptance remains:
+The wider native acceptance still includes:
 
 1. Launch the fresh isolated profile, confirm its title/path, and choose Dark/200%; Save appearance. Inspect Main and Settings at 400-pixel width with scrolling and keyboard focus, including picker menus and wrapped primary actions.
 2. Load the offline demo; retain its JSON while switching tabs and changing Light/150%. Return to preview, scroll to JSON/PDF/map actions, and confirm the schema is unchanged. Do not invoke Connect/Test Connection/Generate review merely to test appearance.
 3. Reopen the same profile and verify saved theme/font. Verify app-owned model/secret files were not created or changed by appearance-only steps.
 4. Exercise the existing independent map controls and Close; export JSON/local Evidence PDF if desired and compare against the demo. Export behavior remains unchanged.
 
-These checks have not been performed by the background agent. The source work does not claim a new native screenshot, installation, real model result or public release.
+The .NET 10 runtime record covers selected native steps above, but not this
+entire appearance, dialog and accessibility matrix. No real-model result or
+public release is claimed.

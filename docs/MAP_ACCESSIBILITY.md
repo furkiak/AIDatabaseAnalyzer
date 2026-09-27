@@ -17,9 +17,9 @@ The toolbar offers light/dark palettes, opaque surfaces (the default), optional 
 | Local table command | Selecting synthetic Orders displayed `No sample data found for dbo.Orders.` locally; no model was invoked |
 | Close | Returned to the existing schema preview and export controls |
 
-![Native dark list at 200%](images/map-dark-list-200.png)
+![Native dark list at 200%](images/map-dark-list-200.jpg)
 
-![Last table reached with Tab](images/map-keyboard-last-table-200.png)
+![Last table reached with Tab](images/map-keyboard-last-table-200.jpg)
 
 The palette and alpha-composited contrast calculations are recorded alongside the local validation evidence. They cover normal/secondary text, white card titles, control borders, focus and relationship strokes across the map background/hover/surface colors. The MAUI entry placeholder was corrected for its actual fixed light background. The rest of the application's fixed light styling is still a separate improvement.
 

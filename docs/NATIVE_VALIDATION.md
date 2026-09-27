@@ -14,9 +14,9 @@
 
 The prior map applied the global 34-pixel button height to table cards and clipped columns. Cards now have automatic height. The screenshots below were captured from the actual application using synthetic metadata.
 
-![Offline demo and export actions](images/offline-demo.png)
+![Offline demo and export actions](images/offline-demo.jpg)
 
-![Every column visible in the native offline map](images/offline-map.png)
+![Every column visible in the native offline map](images/offline-map.jpg)
 
 The Windows Release build passed with existing nullable, XAML and MVVM analyzer warnings (272 in the clean 48ef8fc build); warnings were not disabled. The Evidence PDF identifies itself as local metadata, with no model request or sample rows. It does not assert a workload defect, permission finding or compliance result. Optional local JSON exports can contain samples when explicitly selected; the demo has none.
 
@@ -24,4 +24,4 @@ No Ollama service was available for a real model run. Gemini requests, PostgreSQ
 
 The delimiter-safe format-2 build retained three ordinary dbo labels and added raw Schema/Name identity fields. Its native JSON equals the demo; all five PDF pages were rendered and inspected. In the default 1009×841 window, a nested star-sized Grid had prevented the outer page from measuring its full height. The ScrollView now directly measures the stack: wheel scrolling exposes Export JSON/Evidence PDF without maximizing, and the native JSON export matched the same snapshot.
 
-![Export actions reachable in the default window after scrolling](images/offline-scroll-preview.png)
+![Export actions reachable in the default window after scrolling](images/offline-scroll-preview.jpg)
