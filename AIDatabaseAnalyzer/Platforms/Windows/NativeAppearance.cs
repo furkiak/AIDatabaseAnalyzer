@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.Maui.Platform;
 using NativeStyle = Microsoft.UI.Xaml.Style;
 using NativeSetter = Microsoft.UI.Xaml.Setter;
 
@@ -12,14 +13,63 @@ internal static class NativeAppearance
     private static readonly ConditionalWeakTable<NavigationView, NavigationState> NavigationStates = new();
     private static readonly ConditionalWeakTable<ItemsRepeater, object> Repeaters = new();
     private static readonly ConditionalWeakTable<NavigationViewItem, object> Items = new();
+    private static readonly ConditionalWeakTable<Microsoft.UI.Xaml.Window, WindowState> Windows = new();
 
     public static void ApplyWindow(Microsoft.Maui.Controls.Window window)
     {
         if (window.Handler?.PlatformView is not Microsoft.UI.Xaml.Window nativeWindow
             || nativeWindow.Content is not FrameworkElement root) return;
         root.RequestedTheme = Theme;
+        if (!Windows.TryGetValue(nativeWindow, out var state))
+        {
+            state = new();
+            Windows.Add(nativeWindow, state);
+            root.Loaded += (_, _) => ApplyTitleBar(nativeWindow, root);
+            nativeWindow.Activated += (_, args) =>
+            {
+                state.IsActive = args.WindowActivationState != WindowActivationState.Deactivated;
+                ApplyTitleBar(nativeWindow, root);
+            };
+        }
+        ApplyTitleBar(nativeWindow, root);
         foreach (var navigation in Descendants(root).OfType<NavigationView>())
             AttachNavigation(navigation);
+    }
+
+    private static void ApplyTitleBar(Microsoft.UI.Xaml.Window window, FrameworkElement root)
+    {
+        var app = Microsoft.Maui.Controls.Application.Current!;
+        var foreground = (Color)app.Resources["TextColor"];
+        var inactive = (Color)app.Resources["MutedColor"];
+        var background = (Color)app.Resources["SurfaceColor"];
+        var hover = (Color)app.Resources["InputColor"];
+        var pressed = (Color)app.Resources["PageColor"];
+        if (Microsoft.UI.Windowing.AppWindowTitleBar.IsCustomizationSupported())
+        {
+            var titleBar = window.GetAppWindow()?.TitleBar;
+            if (titleBar is not null)
+            {
+                titleBar.ForegroundColor = foreground.ToWindowsColor();
+                titleBar.InactiveForegroundColor = inactive.ToWindowsColor();
+                titleBar.BackgroundColor = background.ToWindowsColor();
+                titleBar.InactiveBackgroundColor = background.ToWindowsColor();
+                titleBar.ButtonForegroundColor = foreground.ToWindowsColor();
+                titleBar.ButtonInactiveForegroundColor = inactive.ToWindowsColor();
+                titleBar.ButtonBackgroundColor = background.ToWindowsColor();
+                titleBar.ButtonInactiveBackgroundColor = background.ToWindowsColor();
+                titleBar.ButtonHoverForegroundColor = foreground.ToWindowsColor();
+                titleBar.ButtonHoverBackgroundColor = hover.ToWindowsColor();
+                titleBar.ButtonPressedForegroundColor = foreground.ToWindowsColor();
+                titleBar.ButtonPressedBackgroundColor = pressed.ToWindowsColor();
+            }
+        }
+        // MAUI's default AppTitle foreground binding reads the OS application
+        // theme at activation; retain its title/drag template, override only color.
+        foreach (var title in Descendants(root).OfType<TextBlock>().Where(text => text.Name == "AppTitle"))
+            title.Foreground = Windows.TryGetValue(window, out var state) && !state.IsActive
+                ? inactive.ToPlatform() : foreground.ToPlatform();
+        foreach (var container in Descendants(root).OfType<Control>().Where(control => control.Name == "AppTitleBarContainer"))
+            container.Background = background.ToPlatform();
     }
 
     public static void AttachNavigation(NavigationView navigation)
@@ -99,5 +149,10 @@ internal static class NativeAppearance
     {
         public NativeStyle? BaseStyle { get; } = baseStyle;
         public double FontSize { get; set; }
+    }
+
+    private sealed class WindowState
+    {
+        public bool IsActive { get; set; } = true;
     }
 }

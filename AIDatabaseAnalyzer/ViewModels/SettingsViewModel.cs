@@ -91,11 +91,11 @@ public partial class SettingsViewModel : ObservableObject
             else
                 _settings.RemoveSecret("GeminiApiKey");
 
-            await Application.Current.MainPage.DisplayAlert("Success", "Settings saved securely.", "OK");
+            await Application.Current.MainPage.DisplayAppAlertAsync("Success", "Settings saved securely.", "OK");
         }
         catch (Exception)
         {
-            await Shell.Current.DisplayAlert("Settings not fully saved", "Check this profile's file format, permissions and credential storage. No credential details are shown. Earlier individual model fields may already have been saved.", "OK");
+            await Shell.Current.DisplayAppAlertAsync("Settings not fully saved", "Check this profile's file format, permissions and credential storage. No credential details are shown. Earlier individual model fields may already have been saved.", "OK");
         }
     }
 
@@ -110,17 +110,17 @@ public partial class SettingsViewModel : ObservableObject
             {
                 var res = await _httpClient.GetAsync($"{OllamaUrl?.TrimEnd('/')}/api/tags");
                 res.EnsureSuccessStatusCode();
-                await Application.Current.MainPage.DisplayAlert("Success", "Ollama is active!", "OK");
+                await Application.Current.MainPage.DisplayAppAlertAsync("Success", "Ollama is active!", "OK");
             }
             else
             {
                 using var request = GeminiApiRequest.Create(GeminiModel, GeminiApiKey, "Connection test");
                 using var res = await _httpClient.SendAsync(request);
                 if (!res.IsSuccessStatusCode) throw new Exception($"Gemini returned {(int)res.StatusCode}.");
-                await Application.Current.MainPage.DisplayAlert("Success", "Gemini connection OK!", "OK");
+                await Application.Current.MainPage.DisplayAppAlertAsync("Success", "Gemini connection OK!", "OK");
             }
         }
-        catch (Exception) { await Application.Current.MainPage.DisplayAlert("Connection test failed", "Check the endpoint, model, network and API key. No credential details are shown.", "OK"); }
+        catch (Exception) { await Application.Current.MainPage.DisplayAppAlertAsync("Connection test failed", "Check the endpoint, model, network and API key. No credential details are shown.", "OK"); }
         finally { IsTesting = false; }
     }
 }

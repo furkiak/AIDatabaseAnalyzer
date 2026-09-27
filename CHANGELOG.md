@@ -2,6 +2,7 @@
 
 ## Unreleased — local development branch
 
+- Give all app-owned Windows notifications and confirmations explicit saved theme/font, wrapping button labels and bounded message scrolling, retaining the existing primary/secondary/None-default result contract and non-Windows DisplayAlert behavior. Apply active/inactive app title-bar colors without changing OS settings. Follow-up native dialog/title-bar acceptance is pending; the prior native Picker/tab/400×400 button correction was exercised locally.
 - Synchronize saved Light/Dark with the Windows content/navigation roots at startup and after appearance save, scale app-owned Shell labels with the text preference, and constrain existing native button content before wrapping measurement. Preserve OS theme, native focus/selection/commands and profile/model state. These fixes follow real cb27226 Picker/tab/button findings; corrected-binary native acceptance remains pending. Repair the offline demo caption's Unicode separator.
 - Reserve the whole normal unpackaged Windows package container (Data/Settings/Cache) against isolated profiles, including empty or previously marked sibling directories. Preserve sentinel/digest bytes and keep publisher sibling applications usable; the old Data-only mutation fails six tests.
 - Add independent persistent MAUI Light/Dark and 100/150/200% actual text size, opaque accessible-color tokens, explicit labels and 400-pixel single-column/wrapping/scrolling layouts. Appearance-only saves preserve model/credential/review state; native acceptance remains pending.

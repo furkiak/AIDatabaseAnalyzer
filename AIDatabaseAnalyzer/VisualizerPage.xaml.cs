@@ -1,5 +1,6 @@
-﻿using AIDatabaseAnalyzer.ViewModels;
+using AIDatabaseAnalyzer.ViewModels;
 using System.Text;
+using AIDatabaseAnalyzer.Services;
 using System.Text.Json;
 
 namespace AIDatabaseAnalyzer;
@@ -47,16 +48,16 @@ public partial class VisualizerPage : ContentPage
                         sb.AppendLine($"{prop.Name}: {prop.Value}");
                     }
                 }
-                await DisplayAlert("Table Details", sb.ToString(), "Close");
+                await this.DisplayAppAlertAsync("Table Details", sb.ToString(), "Close");
             }
             else
             {
-                await DisplayAlert("Info", $"No sample data found for {tableName}.", "OK");
+                await this.DisplayAppAlertAsync("Info", $"No sample data found for {tableName}.", "OK");
             }
         }
         catch (Exception)
         {
-            await DisplayAlert("Error", "Could not load local table details.", "OK");
+            await this.DisplayAppAlertAsync("Error", "Could not load local table details.", "OK");
         }
     }
 }
