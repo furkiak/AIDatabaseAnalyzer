@@ -39,6 +39,10 @@ public partial class AppearanceController : ObservableObject
         for (int i = 0; i < keys.Length; i++) app.Resources[keys[i]] = Color.FromArgb(colors[i]);
         foreach (int size in new[] { 11, 12, 13, 14, 16, 18, 20, 24, 28, 30, 32 })
             app.Resources[$"Font{size}"] = preferences.FontSize(size);
+#if WINDOWS
+        foreach (var window in app.Windows)
+            Platforms.Windows.NativeAppearance.ApplyWindow(window);
+#endif
     }
 
     [RelayCommand]

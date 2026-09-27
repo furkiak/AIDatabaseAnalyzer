@@ -21,10 +21,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<AppearanceController>();
         builder.Services.AddHttpClient<ILlmService, LlmService>();
 #if WINDOWS
-        Microsoft.Maui.Handlers.ButtonHandler.Mapper.AppendToMapping(nameof(Button.Text), (handler, _) =>
+        builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<Button, Platforms.Windows.WrappingButtonHandler>());
+        Microsoft.Maui.Controls.Handlers.ShellItemHandler.Mapper.AppendToMapping(nameof(ShellItem.CurrentItem), (handler, _) =>
         {
-            if (Microsoft.Maui.Platform.ButtonExtensions.GetContent<Microsoft.UI.Xaml.Controls.TextBlock>(handler.PlatformView) is { } text)
-                text.TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap;
+            if (handler.PlatformView is Microsoft.UI.Xaml.Controls.NavigationView navigation)
+                Platforms.Windows.NativeAppearance.AttachNavigation(navigation);
         });
 #endif
 

@@ -151,7 +151,7 @@
                 </Border.StrokeShape>
                 <VerticalStackLayout Spacing="15">
                     <Label Text="Schema Context Preview" FontSize="{DynamicResource Font18}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
-                    <Label Text="SYNTHETIC OFFLINE DEMO â€” NO LIVE DATABASE" IsVisible="{Binding IsDemo}" FontSize="{DynamicResource Font11}" FontAttributes="Bold" TextColor="{DynamicResource AccentColor}" LineBreakMode="WordWrap" />
+                    <Label Text="SYNTHETIC OFFLINE DEMO — NO LIVE DATABASE" IsVisible="{Binding IsDemo}" FontSize="{DynamicResource Font11}" FontAttributes="Bold" TextColor="{DynamicResource AccentColor}" LineBreakMode="WordWrap" />
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Structural Payload:" FontSize="{DynamicResource Font13}" TextColor="{DynamicResource MutedColor}" VerticalOptions="Center" LineBreakMode="WordWrap" />
                         <Label Text="{Binding SchemaStatsText}" TextColor="{DynamicResource TextColor}" FontSize="{DynamicResource Font12}" FontAttributes="Bold" BackgroundColor="{DynamicResource InputColor}" Padding="12,6" VerticalOptions="Center" LineBreakMode="WordWrap" />
@@ -190,7 +190,7 @@
                                     <Grid Margin="0,4" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                                         <CheckBox IsChecked="{Binding IsSelected}" Color="{DynamicResource AccentColor}" Grid.Column="0" SemanticProperties.Description="{Binding Title}" />
                                         <Label Text="{Binding Title}" VerticalOptions="Center" TextColor="{DynamicResource TextColor}" FontSize="{DynamicResource Font13}" FontAttributes="Bold" LineBreakMode="WordWrap" Grid.Column="1" />
-                                        <Button Text="âœ•" Command="{Binding BindingContext.RemoveTopicCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}" CommandParameter="{Binding .}" IsVisible="{Binding IsCustom}" BackgroundColor="{DynamicResource DangerColor}" TextColor="{DynamicResource ButtonTextColor}" Padding="14,10" CornerRadius="4" VerticalOptions="Center" Margin="10,0,0,0" MinimumHeightRequest="48" Grid.Column="2" SemanticProperties.Description="Remove custom analysis prompt" />
+                                        <Button Text="×" Command="{Binding BindingContext.RemoveTopicCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}" CommandParameter="{Binding .}" IsVisible="{Binding IsCustom}" BackgroundColor="{DynamicResource DangerColor}" TextColor="{DynamicResource ButtonTextColor}" Padding="14,10" CornerRadius="4" VerticalOptions="Center" Margin="10,0,0,0" MinimumHeightRequest="48" Grid.Column="2" SemanticProperties.Description="Remove custom analysis prompt" />
                                     </Grid>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>

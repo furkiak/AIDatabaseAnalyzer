@@ -27,6 +27,10 @@ public partial class App : Application
         window.MinimumWidth = 400;
         window.MinimumHeight = 400;
 
+#if WINDOWS
+        window.Created += (_, _) => Platforms.Windows.NativeAppearance.ApplyWindow(window);
+#endif
+
         return window;
     }
 }
