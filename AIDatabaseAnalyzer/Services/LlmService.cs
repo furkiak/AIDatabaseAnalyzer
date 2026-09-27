@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 
 namespace AIDatabaseAnalyzer.Services;
@@ -6,17 +6,19 @@ namespace AIDatabaseAnalyzer.Services;
 public class LlmService : ILlmService
 {
     private readonly HttpClient _httpClient;
+    private readonly IAppSettingsStore _settings;
 
-    public LlmService(HttpClient httpClient)
+    public LlmService(HttpClient httpClient, IAppSettingsStore settings)
     {
         _httpClient = httpClient;
+        _settings = settings;
         _httpClient.Timeout = TimeSpan.FromMinutes(10);
     }
 
     public async Task<string> AskGeminiAsync(string prompt, CancellationToken cancellationToken = default)
     {
-        string apiKey = await SecureStorage.Default.GetAsync("GeminiApiKey");
-        string modelName = Preferences.Get("GeminiModel", "gemini-3.1-flash-lite-preview");
+        string apiKey = await _settings.GetSecretAsync("GeminiApiKey");
+        string modelName = _settings.Get("GeminiModel", "gemini-3.1-flash-lite-preview");
 
         if (string.IsNullOrWhiteSpace(apiKey)) throw new Exception("Gemini API Key is missing. Please check settings.");
 
@@ -31,8 +33,8 @@ public class LlmService : ILlmService
 
     public async Task<string> AskOllamaAsync(string prompt, CancellationToken cancellationToken = default)
     {
-        string ollamaUrl = Preferences.Get("OllamaUrl", "http://localhost:11434").TrimEnd('/');
-        string modelName = Preferences.Get("OllamaModel", "qwen2.5-coder");
+        string ollamaUrl = _settings.Get("OllamaUrl", "http://localhost:11434").TrimEnd('/');
+        string modelName = _settings.Get("OllamaModel", "qwen2.5-coder");
 
         var requestBody = new
         {

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <Color x:Key="PageColor">#EDF2F7</Color>
+    <Color x:Key="SurfaceColor">#FFFFFF</Color>
+    <Color x:Key="InputColor">#F0F4F8</Color>
+    <Color x:Key="TextColor">#172A42</Color>
+    <Color x:Key="MutedColor">#425570</Color>
+    <Color x:Key="BoundaryColor">#61758E</Color>
+    <Color x:Key="AccentColor">#2258C3</Color>
+    <Color x:Key="WarningColor">#8B341B</Color>
+    <Color x:Key="ButtonColor">#2258C3</Color>
+    <Color x:Key="ButtonTextColor">#FFFFFF</Color>
+    <Color x:Key="DangerColor">#B42331</Color>
+    <x:Double x:Key="Font11">11</x:Double><x:Double x:Key="Font12">12</x:Double>
+    <x:Double x:Key="Font13">13</x:Double><x:Double x:Key="Font14">14</x:Double>
+    <x:Double x:Key="Font16">16</x:Double><x:Double x:Key="Font18">18</x:Double>
+    <x:Double x:Key="Font20">20</x:Double><x:Double x:Key="Font24">24</x:Double>
+    <x:Double x:Key="Font28">28</x:Double><x:Double x:Key="Font30">30</x:Double><x:Double x:Key="Font32">32</x:Double>
+    <Style TargetType="Label">
+        <Setter Property="TextColor" Value="{DynamicResource TextColor}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font14}" />
+        <Setter Property="LineBreakMode" Value="WordWrap" />
+    </Style>
+    <Style TargetType="Button">
+        <Setter Property="TextColor" Value="{DynamicResource ButtonTextColor}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ButtonColor}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font14}" />
+        <Setter Property="MinimumHeightRequest" Value="48" />
+        <Setter Property="Padding" Value="14,10" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="BorderColor" Value="{DynamicResource BoundaryColor}" />
+        <Setter Property="BorderWidth" Value="1" />
+    </Style>
+    <Style TargetType="Entry">
+        <Setter Property="TextColor" Value="{DynamicResource TextColor}" />
+        <Setter Property="PlaceholderColor" Value="{DynamicResource MutedColor}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource InputColor}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font14}" />
+        <Setter Property="MinimumHeightRequest" Value="48" />
+    </Style>
+    <Style TargetType="Picker">
+        <Setter Property="TextColor" Value="{DynamicResource TextColor}" />
+        <Setter Property="TitleColor" Value="{DynamicResource MutedColor}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource InputColor}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font14}" />
+        <Setter Property="MinimumHeightRequest" Value="48" />
+    </Style>
+    <Style TargetType="Editor">
+        <Setter Property="TextColor" Value="{DynamicResource TextColor}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource InputColor}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font14}" />
+    </Style>
+    <Style TargetType="SearchBar">
+        <Setter Property="TextColor" Value="{DynamicResource TextColor}" />
+        <Setter Property="PlaceholderColor" Value="{DynamicResource MutedColor}" />
+        <Setter Property="CancelButtonColor" Value="{DynamicResource MutedColor}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource InputColor}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font14}" />
+    </Style>
+    <Style TargetType="RadioButton">
+        <Setter Property="TextColor" Value="{DynamicResource TextColor}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font14}" />
+        <Setter Property="MinimumHeightRequest" Value="48" />
+    </Style>
+    <Style TargetType="CheckBox"><Setter Property="Color" Value="{DynamicResource AccentColor}" /></Style>
+    <Style TargetType="ContentPage"><Setter Property="BackgroundColor" Value="{DynamicResource PageColor}" /></Style>
+</ResourceDictionary>

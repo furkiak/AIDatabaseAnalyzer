@@ -2,6 +2,10 @@
 
 ## Unreleased — local development branch
 
+- Add independent persistent MAUI Light/Dark and 100/150/200% actual text size, opaque accessible-color tokens, explicit labels and 400-pixel single-column/wrapping/scrolling layouts. Appearance-only saves preserve model/credential/review state; native acceptance remains pending.
+- Add explicit absolute Windows isolated profiles with visible title/path, independent versioned JSON and current-user DPAPI secret storage. Reject malformed arguments, normal-directory overlap, links, unknown markers and corrupt/forward-format data without normal-store fallback or destructive resets.
+- Verify 69 tests including original SQL fixtures, real DPAPI/permission/link behavior, appearance byte preservation and synthetic production request routing. Controlled validation/profile/model-reload mutations fail as expected. Retain the prior 8574924 package and native evidence. New Windows builds report 277 warnings versus 272 baseline; no warnings were suppressed.
+
 - Carry separate immutable schema/name identity through table selection, catalog extraction, relationships, metadata export and provider sampling. Keep ordinary keys stable and escape dot/bracket-containing names without delimiter collisions.
 - Add format-2 raw identity manifests and typed FK/index/constraint/trigger identities; preserve existing table arrays and readable reference fields. Reject ambiguous legacy selections instead of guessing.
 - Verify separate selection of real tempdb delimiter collisions, same-named composite FK/index groups, constraints/triggers/views/routines, sampling and an expected failing ambiguous-key mutation. Keep live PostgreSQL/MySQL and updated-package native checks explicit.

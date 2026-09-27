@@ -1,21 +1,9 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<Shell
-    x:Class="AIDatabaseAnalyzer.AppShell"
-    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:local="clr-namespace:AIDatabaseAnalyzer"
-    Shell.FlyoutBehavior="Disabled"
-    Shell.NavBarIsVisible="False"
-    BackgroundColor="#EEF4FA">
-    <TabBar
-            Shell.TabBarTitleColor="#245CD6"
-            Shell.TabBarUnselectedColor="#64748B"
-            Shell.TabBarBackgroundColor="#F4FFFFFF">
-
+<?xml version='1.0' encoding='utf-8'?>
+<Shell xmlns:local="clr-namespace:AIDatabaseAnalyzer" xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" x:Class="AIDatabaseAnalyzer.AppShell" Shell.FlyoutBehavior="Disabled" Shell.NavBarIsVisible="False" BackgroundColor="{DynamicResource PageColor}">
+    <TabBar Shell.TabBarTitleColor="{DynamicResource TextColor}" Shell.TabBarUnselectedColor="{DynamicResource TextColor}" Shell.TabBarBackgroundColor="{DynamicResource SurfaceColor}">
         <Tab Title="Review">
             <ShellContent ContentTemplate="{DataTemplate local:MainPage}" />
         </Tab>
-
         <Tab Title="Settings">
             <ShellContent ContentTemplate="{DataTemplate local:SettingsPage}" />
         </Tab>

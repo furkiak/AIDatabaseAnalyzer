@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -13,6 +13,7 @@ public partial class MainViewModel : ObservableObject
     private readonly DbSchemaService _dbService;
     private readonly ILlmService _llmService;
     private readonly PdfReportService _pdfService;
+    private readonly IAppSettingsStore _settings;
     private CancellationTokenSource? _analysisCts;
 
     [ObservableProperty] private string serverAddress = "localhost";
@@ -67,11 +68,12 @@ public partial class MainViewModel : ObservableObject
     public string BaseConnectionString { get; private set; }
     public DbEngine SelectedEngine { get; private set; }
 
-    public MainViewModel(DbSchemaService dbService, ILlmService llmService, PdfReportService pdfService)
+    public MainViewModel(DbSchemaService dbService, ILlmService llmService, PdfReportService pdfService, IAppSettingsStore settings)
     {
         _dbService = dbService;
         _llmService = llmService;
         _pdfService = pdfService;
+        _settings = settings;
         InitializeComponents();
         LoadDefaultTopics();
     }
@@ -379,7 +381,7 @@ public partial class MainViewModel : ObservableObject
         var selected = Topics.Where(t => t.IsSelected).ToList();
         if (IsAnalysisRunning || selected.Count == 0 || string.IsNullOrWhiteSpace(ExtractedJsonSchema)) return;
 
-        bool isLocal = Preferences.Get("SelectedEngine", "Ollama") == "Ollama";
+        bool isLocal = _settings.Get("SelectedEngine", "Ollama") == "Ollama";
         string analysisSchema = SchemaPrivacy.WithoutSamples(ExtractedJsonSchema);
         if (selected.Any(topic => topic.Prompt.Length > 3_000))
         {
@@ -393,13 +395,13 @@ public partial class MainViewModel : ObservableObject
             await Application.Current.MainPage.DisplayAlert("Schema too large", "Exclude optional metadata or select fewer tables. No model request was sent.", "OK");
             return;
         }
-        string ollamaUrl = Preferences.Get("OllamaUrl", "http://localhost:11434");
+        string ollamaUrl = _settings.Get("OllamaUrl", "http://localhost:11434");
         bool needsConsent = !isLocal || !ModelDestination.IsLoopbackOllama(ollamaUrl);
         if (needsConsent)
         {
             var destination = isLocal
                 ? $"Ollama endpoint {ollamaUrl}"
-                : $"Google Gemini ({Preferences.Get("GeminiModel", "gemini-3.1-flash-lite-preview")})";
+                : $"Google Gemini ({_settings.Get("GeminiModel", "gemini-3.1-flash-lite-preview")})";
             bool consent = await Application.Current.MainPage.DisplayAlert(
                 "Send database metadata to a model?",
                 $"Destination: {destination}. Snapshot: {analysisSchema.Length:N0} characters; {schemaChunks.Count} sections repeated for {selected.Count} selected prompts. Sample rows are excluded. Model responses may also be sent for the summary. Review metadata and custom prompts for sensitive names first.",

@@ -1,66 +1,62 @@
-<?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="AIDatabaseAnalyzer.SettingsPage"
-             BackgroundColor="#EEF4FA">
-
+<?xml version='1.0' encoding='utf-8'?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:local="clr-namespace:AIDatabaseAnalyzer" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" x:Class="AIDatabaseAnalyzer.SettingsPage" BackgroundColor="{DynamicResource PageColor}">
     <ScrollView>
-        <Grid>
-            <VerticalStackLayout Padding="22,32,22,48" Spacing="18" MaximumWidthRequest="650" HorizontalOptions="Fill" VerticalOptions="Start">
-
-                <Label Text="Model settings" FontSize="28" FontAttributes="Bold" TextColor="#0F172A" HorizontalOptions="Center" Margin="0,0,0,10" />
-
-                <Border Stroke="#D7E4F2" StrokeThickness="1" BackgroundColor="#F4FFFFFF" Padding="28">
+        <VerticalStackLayout Spacing="10">
+            <VerticalStackLayout Padding="14,20,14,32" Spacing="18" MaximumWidthRequest="650" HorizontalOptions="Fill" VerticalOptions="Start">
+                <local:AppearanceView />
+                <Label Text="Model settings" FontSize="{DynamicResource Font28}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" HorizontalOptions="Center" Margin="0,0,0,10" LineBreakMode="WordWrap" />
+                <Label Text="{Binding SettingsLoadStatus}" TextColor="{DynamicResource MutedColor}" />
+                <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource SurfaceColor}" Padding="16">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="24" />
                     </Border.StrokeShape>
                     <VerticalStackLayout Spacing="15">
-                        <Label Text="Choose a model destination" FontSize="16" FontAttributes="Bold" TextColor="#0F172A"/>
-                        <Label Text="Schema metadata is shared only after you review the destination. Sample rows remain outside model requests." FontSize="12" TextColor="#64748B" />
-                        <HorizontalStackLayout Spacing="30">
-                            <RadioButton Content="Local (Ollama)" IsChecked="{Binding IsOllamaSelected}" TextColor="#334155" />
-                            <RadioButton Content="Cloud (Gemini API)" IsChecked="{Binding IsGeminiSelected}" TextColor="#334155" />
-                        </HorizontalStackLayout>
+                        <Label Text="Choose a model destination" FontSize="{DynamicResource Font16}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
+                        <Label Text="Schema metadata is shared only after you review the destination. Sample rows remain outside model requests." FontSize="{DynamicResource Font12}" TextColor="{DynamicResource MutedColor}" LineBreakMode="WordWrap" />
+                        <VerticalStackLayout Spacing="10">
+                            <RadioButton Content="Local (Ollama)" IsChecked="{Binding IsOllamaSelected}" TextColor="{DynamicResource TextColor}" />
+                            <RadioButton Content="Cloud (Gemini API)" IsChecked="{Binding IsGeminiSelected}" TextColor="{DynamicResource TextColor}" />
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Border>
-
-                <Border Stroke="#D7E4F2" StrokeThickness="1" BackgroundColor="#F4FFFFFF" Padding="28" IsVisible="{Binding IsOllamaConfigVisible}">
+                <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource SurfaceColor}" Padding="16" IsVisible="{Binding IsOllamaConfigVisible}">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="24" />
                     </Border.StrokeShape>
                     <VerticalStackLayout Spacing="15">
-                        <Label Text="Ollama Configuration" FontSize="16" FontAttributes="Bold" TextColor="#0F172A"/>
-
-                        <Label Text="OLLAMA API URL" FontSize="11" FontAttributes="Bold" TextColor="#64748B" Margin="0,5,0,-5" />
-                        <Entry Text="{Binding OllamaUrl}" BackgroundColor="#F8FAFC" TextColor="#0F172A" />
-
-                        <Label Text="MODEL NAME" FontSize="11" FontAttributes="Bold" TextColor="#64748B" Margin="0,5,0,-5" />
-                        <Entry Text="{Binding OllamaModel}" BackgroundColor="#F8FAFC" TextColor="#0F172A" />
+                        <Label Text="Ollama Configuration" FontSize="{DynamicResource Font16}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
+                        <Label Text="OLLAMA API URL" FontSize="{DynamicResource Font11}" FontAttributes="Bold" TextColor="{DynamicResource MutedColor}" Margin="0,5,0,0" LineBreakMode="WordWrap" />
+                        <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                            <Entry Text="{Binding OllamaUrl}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" SemanticProperties.Description="OLLAMA API URL" />
+                        </Border>
+                        <Label Text="MODEL NAME" FontSize="{DynamicResource Font11}" FontAttributes="Bold" TextColor="{DynamicResource MutedColor}" Margin="0,5,0,0" LineBreakMode="WordWrap" />
+                        <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                            <Entry Text="{Binding OllamaModel}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" SemanticProperties.Description="Model name" />
+                        </Border>
                     </VerticalStackLayout>
                 </Border>
-
-                <Border Stroke="#D7E4F2" StrokeThickness="1" BackgroundColor="#F4FFFFFF" Padding="28" IsVisible="{Binding IsGeminiConfigVisible}">
+                <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource SurfaceColor}" Padding="16" IsVisible="{Binding IsGeminiConfigVisible}">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="24" />
                     </Border.StrokeShape>
                     <VerticalStackLayout Spacing="15">
-                        <Label Text="Gemini Configuration" FontSize="16" FontAttributes="Bold" TextColor="#0F172A"/>
-
-                        <Label Text="API KEY" FontSize="11" FontAttributes="Bold" TextColor="#64748B" Margin="0,5,0,-5" />
-                        <Entry Text="{Binding GeminiApiKey}" IsPassword="True" BackgroundColor="#F8FAFC" TextColor="#0F172A" />
-
-                        <Label Text="MODEL NAME" FontSize="11" FontAttributes="Bold" TextColor="#64748B" Margin="0,5,0,-5" />
-                        <Entry Text="{Binding GeminiModel}" BackgroundColor="#F8FAFC" TextColor="#0F172A" />
+                        <Label Text="Gemini Configuration" FontSize="{DynamicResource Font16}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
+                        <Label Text="API KEY" FontSize="{DynamicResource Font11}" FontAttributes="Bold" TextColor="{DynamicResource MutedColor}" Margin="0,5,0,0" LineBreakMode="WordWrap" />
+                        <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                            <Entry Text="{Binding GeminiApiKey}" IsPassword="True" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" SemanticProperties.Description="API KEY" />
+                        </Border>
+                        <Label Text="MODEL NAME" FontSize="{DynamicResource Font11}" FontAttributes="Bold" TextColor="{DynamicResource MutedColor}" Margin="0,5,0,0" LineBreakMode="WordWrap" />
+                        <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                            <Entry Text="{Binding GeminiModel}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" SemanticProperties.Description="Model name" />
+                        </Border>
                     </VerticalStackLayout>
                 </Border>
-
-                <Grid ColumnDefinitions="Auto, *, *" ColumnSpacing="15" Margin="0,10,0,0">
-                    <ActivityIndicator Grid.Column="0" IsRunning="{Binding IsTesting}" IsVisible="{Binding IsTesting}" Color="#245CD6" VerticalOptions="Center" Margin="0,0,10,0"/>
-                    <Button Grid.Column="1" Text="Test Connection" Command="{Binding TestConnectionCommand}" BackgroundColor="#F1F5F9" TextColor="#475569" CornerRadius="13" HeightRequest="42" FontAttributes="Bold" />
-                    <Button Grid.Column="2" Text="Save Settings" Command="{Binding SaveSettingsCommand}" BackgroundColor="#245CD6" TextColor="White" CornerRadius="13" HeightRequest="42" FontAttributes="Bold" />
-                </Grid>
-
+                <VerticalStackLayout Margin="0,10,0,0" Spacing="10">
+                    <ActivityIndicator IsRunning="{Binding IsTesting}" IsVisible="{Binding IsTesting}" Color="{DynamicResource AccentColor}" VerticalOptions="Center" Margin="0,0,10,0" />
+                    <Button Text="Test Connection" Command="{Binding TestConnectionCommand}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource MutedColor}" CornerRadius="13" FontAttributes="Bold" MinimumHeightRequest="48" Padding="14,10" />
+                    <Button Text="Save Settings" Command="{Binding SaveSettingsCommand}" BackgroundColor="{DynamicResource ButtonColor}" TextColor="{DynamicResource ButtonTextColor}" CornerRadius="13" FontAttributes="Bold" MinimumHeightRequest="48" Padding="14,10" />
+                </VerticalStackLayout>
             </VerticalStackLayout>
-        </Grid>
+        </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" xmlns:services="clr-namespace:AIDatabaseAnalyzer.Services" x:Class="AIDatabaseAnalyzer.AppearanceView" x:DataType="services:AppearanceController">
+    <Border Stroke="{DynamicResource BoundaryColor}" BackgroundColor="{DynamicResource SurfaceColor}" Padding="16" StrokeThickness="1">
+        <Border.StrokeShape>
+            <RoundRectangle CornerRadius="16" />
+        </Border.StrokeShape>
+        <VerticalStackLayout Spacing="10">
+            <Label Text="Local appearance" FontSize="{DynamicResource Font18}" FontAttributes="Bold" SemanticProperties.HeadingLevel="Level2" LineBreakMode="WordWrap" />
+            <Label Text="{Binding ProfileLabel}" FontSize="{DynamicResource Font12}" TextColor="{DynamicResource MutedColor}" LineBreakMode="WordWrap" />
+            <Label Text="Theme" LineBreakMode="WordWrap" />
+            <Border Stroke="{DynamicResource BoundaryColor}" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                <Picker ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}" SemanticProperties.Description="Application theme: Light or Dark" />
+            </Border>
+            <Label Text="Text size (%)" LineBreakMode="WordWrap" />
+            <Border Stroke="{DynamicResource BoundaryColor}" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                <Picker ItemsSource="{Binding TextSizes}" SelectedItem="{Binding TextScalePercent}" SemanticProperties.Description="Application text size: 100, 150 or 200 percent. Does not change display DPI." />
+            </Border>
+            <Button Text="Save appearance" Command="{Binding SaveAppearanceCommand}" SemanticProperties.Description="Save only local appearance, without saving model settings" MinimumHeightRequest="48" Padding="14,10" />
+            <Label Text="{Binding Status}" TextColor="{DynamicResource MutedColor}" FontSize="{DynamicResource Font12}" LineBreakMode="WordWrap" />
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

@@ -1,245 +1,241 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="AIDatabaseAnalyzer.MainPage"
-             BackgroundColor="#EEF4FA">
-
+<?xml version='1.0' encoding='utf-8'?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:local="clr-namespace:AIDatabaseAnalyzer" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" x:Class="AIDatabaseAnalyzer.MainPage" BackgroundColor="{DynamicResource PageColor}">
     <ScrollView>
-            <VerticalStackLayout Padding="22,32,22,48" Spacing="18" MaximumWidthRequest="850" HorizontalOptions="Fill" VerticalOptions="Start">
-                <Border Stroke="#C9DCF0" StrokeThickness="1" BackgroundColor="#E7F6FDFF" Padding="28">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="26" /></Border.StrokeShape>
-                    <VerticalStackLayout Spacing="9">
-                        <Label Text="SPACE &amp; TAB  /  DATA TOOLS" FontSize="11" FontAttributes="Bold" CharacterSpacing="2" TextColor="#42729E" />
-                        <Label Text="Database clarity, with evidence." FontSize="30" FontAttributes="Bold" TextColor="#102E4E" />
-                        <Label Text="A guided schema review for SQL Server, PostgreSQL and MySQL. Your data scope stays visible at every step." FontSize="14" TextColor="#4A6885" />
-                        <FlexLayout Wrap="Wrap" Margin="0,7,0,0">
-                            <Border Stroke="#C5DCEB" BackgroundColor="#E7F7FCFF" Padding="12,6"><Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape><Label Text="01  CONNECT" FontSize="11" FontAttributes="Bold" TextColor="#245CD6" /></Border>
-                            <Border Stroke="#C5DCEB" BackgroundColor="#E7F7FCFF" Padding="12,6"><Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape><Label Text="02  SCOPE" FontSize="11" FontAttributes="Bold" TextColor="#245CD6" /></Border>
-                            <Border Stroke="#C5DCEB" BackgroundColor="#E7F7FCFF" Padding="12,6"><Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape><Label Text="03  REVIEW" FontSize="11" FontAttributes="Bold" TextColor="#245CD6" /></Border>
-                        </FlexLayout>
-                    </VerticalStackLayout>
-                </Border>
-
-                <Border Stroke="#D7E4F2" StrokeThickness="1" BackgroundColor="#F4FFFFFF" Padding="28" IsVisible="{Binding IsConnectionCardVisible}">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="24" />
-                    </Border.StrokeShape>
-                    <VerticalStackLayout Spacing="12">
-                        <Label Text="Database Connection" FontSize="18" FontAttributes="Bold" TextColor="#0F172A" Margin="0,0,0,5" />
-
-                        <Label Text="DATABASE ENGINE" FontSize="13" FontAttributes="Bold" TextColor="#0F172A" Margin="0,5,0,-5"/>
-                        <Picker BackgroundColor="#F8FAFC" TextColor="#0F172A" SelectedIndex="{Binding SelectedEngineIndex}">
+        <VerticalStackLayout Padding="14,20,14,32" Spacing="18" MaximumWidthRequest="850" HorizontalOptions="Fill" VerticalOptions="Start">
+            <local:AppearanceView />
+            <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource SurfaceColor}" Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="26" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="9">
+                    <Label Text="SPACE &amp; TAB  /  DATA TOOLS" FontSize="{DynamicResource Font11}" FontAttributes="Bold" CharacterSpacing="2" TextColor="{DynamicResource MutedColor}" LineBreakMode="WordWrap" />
+                    <Label Text="Database clarity, with evidence." FontSize="{DynamicResource Font30}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
+                    <Label Text="A guided schema review for SQL Server, PostgreSQL and MySQL. Your data scope stays visible at every step." FontSize="{DynamicResource Font14}" TextColor="{DynamicResource MutedColor}" LineBreakMode="WordWrap" />
+                    <FlexLayout Wrap="Wrap" Margin="0,7,0,0">
+                        <Border Stroke="{DynamicResource BoundaryColor}" BackgroundColor="{DynamicResource InputColor}" Padding="12,6" StrokeThickness="1">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="14" />
+                            </Border.StrokeShape>
+                            <Label Text="01  CONNECT" FontSize="{DynamicResource Font11}" FontAttributes="Bold" TextColor="{DynamicResource AccentColor}" LineBreakMode="WordWrap" />
+                        </Border>
+                        <Border Stroke="{DynamicResource BoundaryColor}" BackgroundColor="{DynamicResource InputColor}" Padding="12,6" StrokeThickness="1">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="14" />
+                            </Border.StrokeShape>
+                            <Label Text="02  SCOPE" FontSize="{DynamicResource Font11}" FontAttributes="Bold" TextColor="{DynamicResource AccentColor}" LineBreakMode="WordWrap" />
+                        </Border>
+                        <Border Stroke="{DynamicResource BoundaryColor}" BackgroundColor="{DynamicResource InputColor}" Padding="12,6" StrokeThickness="1">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="14" />
+                            </Border.StrokeShape>
+                            <Label Text="03  REVIEW" FontSize="{DynamicResource Font11}" FontAttributes="Bold" TextColor="{DynamicResource AccentColor}" LineBreakMode="WordWrap" />
+                        </Border>
+                    </FlexLayout>
+                </VerticalStackLayout>
+            </Border>
+            <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource SurfaceColor}" Padding="16" IsVisible="{Binding IsConnectionCardVisible}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="24" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Database Connection" FontSize="{DynamicResource Font18}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" Margin="0,0,0,5" LineBreakMode="WordWrap" />
+                    <Label Text="DATABASE ENGINE" FontSize="{DynamicResource Font13}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" Margin="0,5,0,0" LineBreakMode="WordWrap" />
+                    <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                        <Picker BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" SelectedIndex="{Binding SelectedEngineIndex}" SemanticProperties.Description="DATABASE ENGINE">
                             <Picker.Items>
                                 <x:String>SQL Server</x:String>
                                 <x:String>PostgreSQL</x:String>
                                 <x:String>MySQL</x:String>
                             </Picker.Items>
                         </Picker>
-
-                        <Grid ColumnDefinitions="*, 150" ColumnSpacing="15">
-                            <VerticalStackLayout Grid.Column="0" Spacing="5">
-                                <Label Text="SERVER ADDRESS" FontSize="13" FontAttributes="Bold" TextColor="#0F172A"/>
-                                <Entry Text="{Binding ServerAddress}" Placeholder="localhost or IP" BackgroundColor="#F8FAFC" TextColor="#0F172A" />
-                            </VerticalStackLayout>
-                            <VerticalStackLayout Grid.Column="1" Spacing="5">
-                                <Label Text="PORT" FontSize="13" FontAttributes="Bold" TextColor="#0F172A"/>
-                                <Entry Text="{Binding Port}" Placeholder="Optional" BackgroundColor="#F8FAFC" TextColor="#0F172A" />
-                            </VerticalStackLayout>
-                        </Grid>
-
-                        <Grid ColumnDefinitions="*, *" ColumnSpacing="15">
-                            <VerticalStackLayout Grid.Column="0" Spacing="5">
-                                <Label Text="USERNAME" FontSize="13" FontAttributes="Bold" TextColor="#0F172A"/>
-                                <Entry Text="{Binding Username}" Placeholder="SQL Server: blank uses Windows login" BackgroundColor="#F8FAFC" TextColor="#0F172A" />
-                            </VerticalStackLayout>
-                            <VerticalStackLayout Grid.Column="1" Spacing="5">
-                                <Label Text="PASSWORD" FontSize="13" FontAttributes="Bold" TextColor="#0F172A"/>
-                                <Entry Text="{Binding Password}" IsPassword="True" BackgroundColor="#F8FAFC" TextColor="#0F172A" />
-                            </VerticalStackLayout>
-                        </Grid>
-
-                        <HorizontalStackLayout Spacing="8">
-                            <CheckBox IsChecked="{Binding AllowUntrustedCertificate}" Color="#C2602B" />
-                            <Label Text="Local development only: accept an untrusted server certificate"
-                                   VerticalOptions="Center" TextColor="#7C3E19" FontSize="12" />
-                        </HorizontalStackLayout>
-                        <Label Text="Certificate validation is on by default. Use a trusted certificate for production databases."
-                               TextColor="#64748B" FontSize="12" />
-
-                        <Button Text="Connect &amp; Fetch Databases" 
-                                Command="{Binding ConnectCommand}" 
-                                BackgroundColor="#245CD6" TextColor="White" CornerRadius="13" HeightRequest="42" FontAttributes="Bold" Margin="0,15,0,0" />
-                        <Button Text="Try the offline demo" Command="{Binding LoadDemoCommand}"
-                                BackgroundColor="#E7F0FA" TextColor="#245CD6" CornerRadius="13" HeightRequest="42" FontAttributes="Bold" />
+                    </Border>
+                    <VerticalStackLayout Spacing="10">
+                        <VerticalStackLayout Spacing="5">
+                            <Label Text="SERVER ADDRESS" FontSize="{DynamicResource Font13}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
+                            <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                                <Entry Text="{Binding ServerAddress}" Placeholder="localhost or IP" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" SemanticProperties.Description="Server address, localhost or IP" />
+                            </Border>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="5">
+                            <Label Text="PORT" FontSize="{DynamicResource Font13}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
+                            <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                                <Entry Text="{Binding Port}" Placeholder="Optional" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" SemanticProperties.Description="Optional database port" />
+                            </Border>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
-                </Border>
-
-                <Border Stroke="#D7E4F2" StrokeThickness="1" BackgroundColor="#F4FFFFFF" Padding="28" IsVisible="{Binding IsFiltersCardVisible}">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="24" />
-                    </Border.StrokeShape>
-                    <VerticalStackLayout Spacing="12">
-                        <Label Text="Scope &amp; Components" FontSize="18" FontAttributes="Bold" TextColor="#0F172A" Margin="0,0,0,5" />
-
-                        <Label Text="TARGET DATABASE" FontSize="13" FontAttributes="Bold" TextColor="#0F172A" Margin="0,5,0,-5"/>
-                        <Picker Title="Select a database..." 
-                                ItemsSource="{Binding Databases}" 
-                                SelectedItem="{Binding SelectedDatabase}" 
-                                BackgroundColor="#F8FAFC" TextColor="#0F172A" />
-
-                        <Label Text="INCLUDE COMPONENTS" FontSize="13" FontAttributes="Bold" TextColor="#0F172A" Margin="0,10,0,0"/>
-                        <FlexLayout Wrap="Wrap" AlignItems="Center" Margin="0,0,0,5" BindableLayout.ItemsSource="{Binding Components}">
+                    <VerticalStackLayout Spacing="10">
+                        <VerticalStackLayout Spacing="5">
+                            <Label Text="USERNAME" FontSize="{DynamicResource Font13}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
+                            <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                                <Entry Text="{Binding Username}" Placeholder="SQL Server: blank uses Windows login" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" SemanticProperties.Description="Database username. SQL Server: blank uses Windows login" />
+                            </Border>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="5">
+                            <Label Text="PASSWORD" FontSize="{DynamicResource Font13}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
+                            <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                                <Entry Text="{Binding Password}" IsPassword="True" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" SemanticProperties.Description="PASSWORD" />
+                            </Border>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <CheckBox IsChecked="{Binding AllowUntrustedCertificate}" Color="{DynamicResource WarningColor}" Grid.Column="0" SemanticProperties.Description="Local development only: accept an untrusted server certificate" />
+                        <Label Text="Local development only: accept an untrusted server certificate" VerticalOptions="Center" TextColor="{DynamicResource WarningColor}" FontSize="{DynamicResource Font12}" LineBreakMode="WordWrap" Grid.Column="1" />
+                    </Grid>
+                    <Label Text="Certificate validation is on by default. Use a trusted certificate for production databases." TextColor="{DynamicResource MutedColor}" FontSize="{DynamicResource Font12}" LineBreakMode="WordWrap" />
+                    <Button Text="Connect &amp; Fetch Databases" Command="{Binding ConnectCommand}" BackgroundColor="{DynamicResource ButtonColor}" TextColor="{DynamicResource ButtonTextColor}" CornerRadius="13" FontAttributes="Bold" Margin="0,15,0,0" MinimumHeightRequest="48" Padding="14,10" />
+                    <Button Text="Try the offline demo" Command="{Binding LoadDemoCommand}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource AccentColor}" CornerRadius="13" FontAttributes="Bold" MinimumHeightRequest="48" Padding="14,10" />
+                </VerticalStackLayout>
+            </Border>
+            <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource SurfaceColor}" Padding="16" IsVisible="{Binding IsFiltersCardVisible}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="24" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Scope &amp; Components" FontSize="{DynamicResource Font18}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" Margin="0,0,0,5" LineBreakMode="WordWrap" />
+                    <Label Text="TARGET DATABASE" FontSize="{DynamicResource Font13}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" Margin="0,5,0,0" LineBreakMode="WordWrap" />
+                    <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                        <Picker Title="Select a database..." ItemsSource="{Binding Databases}" SelectedItem="{Binding SelectedDatabase}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" SemanticProperties.Description="Select a database..." />
+                    </Border>
+                    <Label Text="INCLUDE COMPONENTS" FontSize="{DynamicResource Font13}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" Margin="0,10,0,0" LineBreakMode="WordWrap" />
+                    <VerticalStackLayout Margin="0,0,0,5" BindableLayout.ItemsSource="{Binding Components}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,10,10" ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                    <CheckBox IsChecked="{Binding IsSelected}" Color="{DynamicResource AccentColor}" Grid.Column="0" SemanticProperties.Description="{Binding Name}" />
+                                    <Label Text="{Binding Name}" VerticalOptions="Center" TextColor="{DynamicResource TextColor}" FontSize="{DynamicResource Font13}" LineBreakMode="WordWrap" Grid.Column="1" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <Label Text="DATA SAMPLING" FontSize="{DynamicResource Font13}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
+                    <Grid Margin="0,0,0,10" ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <CheckBox IsChecked="{Binding SampleDataSelection.IsSelected}" Color="{DynamicResource AccentColor}" Grid.Column="0" SemanticProperties.Description="{Binding SampleDataSelection.Name}" />
+                        <Label Text="{Binding SampleDataSelection.Name}" VerticalOptions="Center" TextColor="{DynamicResource TextColor}" FontSize="{DynamicResource Font13}" LineBreakMode="WordWrap" Grid.Column="1" />
+                    </Grid>
+                    <VerticalStackLayout Margin="0,10,0,0" Spacing="10">
+                        <Label Text="TABLES TO ANALYZE" FontSize="{DynamicResource Font13}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" VerticalOptions="End" LineBreakMode="WordWrap" />
+                        <Label Text="{Binding SelectedTableText}" FontSize="{DynamicResource Font12}" FontAttributes="Bold" TextColor="{DynamicResource AccentColor}" VerticalOptions="End" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Margin="0,5,0,0" Spacing="10">
+                        <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                            <SearchBar Placeholder="Search tables..." Text="{Binding SearchQuery}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" CancelButtonColor="{DynamicResource MutedColor}" SemanticProperties.Description="Search tables..." />
+                        </Border>
+                        <Button Text="Toggle All" Command="{Binding ToggleAllTablesCommand}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource MutedColor}" CornerRadius="6" FontAttributes="Bold" FontSize="{DynamicResource Font12}" Padding="14,10" MinimumHeightRequest="48" />
+                    </VerticalStackLayout>
+                    <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource SurfaceColor}" HeightRequest="250">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="6" />
+                        </Border.StrokeShape>
+                        <ScrollView>
+                            <VerticalStackLayout Padding="10" Spacing="0" BindableLayout.ItemsSource="{Binding FilteredTables}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,2" ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                            <CheckBox IsChecked="{Binding IsSelected}" Color="{DynamicResource AccentColor}" Grid.Column="0" SemanticProperties.Description="{Binding Name}" />
+                                            <Label Text="{Binding Name}" VerticalOptions="Center" TextColor="{DynamicResource TextColor}" FontSize="{DynamicResource Font13}" LineBreakMode="WordWrap" Grid.Column="1" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </ScrollView>
+                    </Border>
+                    <VerticalStackLayout Margin="0,15,0,0" Spacing="10">
+                        <Button Text="Go Back" Command="{Binding BackToConnectionCommand}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource MutedColor}" CornerRadius="13" FontAttributes="Bold" MinimumHeightRequest="48" Padding="14,10" />
+                        <Button Text="Extract Schema Structure" Command="{Binding ExtractCommand}" BackgroundColor="{DynamicResource ButtonColor}" TextColor="{DynamicResource ButtonTextColor}" CornerRadius="13" FontAttributes="Bold" MinimumHeightRequest="48" Padding="14,10" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+            <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource SurfaceColor}" Padding="16" IsVisible="{Binding IsSchemaPreviewCardVisible}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="24" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="Schema Context Preview" FontSize="{DynamicResource Font18}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
+                    <Label Text="SYNTHETIC OFFLINE DEMO â€” NO LIVE DATABASE" IsVisible="{Binding IsDemo}" FontSize="{DynamicResource Font11}" FontAttributes="Bold" TextColor="{DynamicResource AccentColor}" LineBreakMode="WordWrap" />
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Structural Payload:" FontSize="{DynamicResource Font13}" TextColor="{DynamicResource MutedColor}" VerticalOptions="Center" LineBreakMode="WordWrap" />
+                        <Label Text="{Binding SchemaStatsText}" TextColor="{DynamicResource TextColor}" FontSize="{DynamicResource Font12}" FontAttributes="Bold" BackgroundColor="{DynamicResource InputColor}" Padding="12,6" VerticalOptions="Center" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                    <Label Text="{Binding CloudPrivacyText}" TextColor="{DynamicResource MutedColor}" FontSize="{DynamicResource Font12}" LineBreakMode="WordWrap" />
+                    <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                        <Editor Text="{Binding ExtractedJsonSchema}" HeightRequest="300" IsReadOnly="True" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" FontFamily="Consolas" FontSize="{DynamicResource Font12}" SemanticProperties.Description="{Binding CloudPrivacyText}" />
+                    </Border>
+                    <FlexLayout Wrap="Wrap" JustifyContent="SpaceBetween" Margin="0,10,0,0">
+                        <Button Text="Start Over" Command="{Binding StartOverCommand}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource MutedColor}" CornerRadius="13" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="{DynamicResource Font13}" MinimumHeightRequest="48" Padding="14,10" />
+                        <Button Text="Export JSON" Command="{Binding ExportCommand}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource MutedColor}" CornerRadius="13" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="{DynamicResource Font13}" MinimumHeightRequest="48" Padding="14,10" />
+                        <Button Text="Evidence PDF" Command="{Binding ExportEvidencePdfCommand}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource MutedColor}" CornerRadius="13" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="{DynamicResource Font13}" MinimumHeightRequest="48" Padding="14,10" />
+                        <Button Text="Visualize" Command="{Binding VisualizeCommand}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" CornerRadius="13" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="{DynamicResource Font13}" MinimumHeightRequest="48" Padding="14,10" />
+                        <Button Text="Approve" Command="{Binding ApproveSchemaCommand}" BackgroundColor="{DynamicResource ButtonColor}" TextColor="{DynamicResource ButtonTextColor}" CornerRadius="13" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="{DynamicResource Font13}" MinimumHeightRequest="48" Padding="14,10" />
+                    </FlexLayout>
+                </VerticalStackLayout>
+            </Border>
+            <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource SurfaceColor}" Padding="16" IsVisible="{Binding IsQuestionsCardVisible}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="24" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="Evidence-limited schema review" FontSize="{DynamicResource Font18}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
+                    <Label Text="AI output is a hypothesis. Query plans, permissions and workload behavior are not measured by this snapshot." FontSize="{DynamicResource Font12}" TextColor="{DynamicResource MutedColor}" LineBreakMode="WordWrap" />
+                    <VerticalStackLayout Margin="0,0,0,5" Spacing="10">
+                        <Button Text="Toggle All Topics" Command="{Binding ToggleAllTopicsCommand}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource MutedColor}" CornerRadius="6" FontAttributes="Bold" FontSize="{DynamicResource Font12}" Padding="14,10" HorizontalOptions="Start" MinimumHeightRequest="48" />
+                        <Label Text="{Binding SelectedTopicText}" FontSize="{DynamicResource Font12}" FontAttributes="Bold" TextColor="{DynamicResource AccentColor}" VerticalOptions="Center" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                    <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="13" />
+                        </Border.StrokeShape>
+                        <VerticalStackLayout Spacing="2" Padding="12" BindableLayout.ItemsSource="{Binding Topics}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate>
-                                    <HorizontalStackLayout Spacing="8" Margin="0,0,10,10" WidthRequest="160">
-                                        <CheckBox IsChecked="{Binding IsSelected}" Color="#245CD6" />
-                                        <Label Text="{Binding Name}" VerticalOptions="Center" TextColor="#334155" FontSize="13" />
-                                    </HorizontalStackLayout>
+                                    <Grid Margin="0,4" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                        <CheckBox IsChecked="{Binding IsSelected}" Color="{DynamicResource AccentColor}" Grid.Column="0" SemanticProperties.Description="{Binding Title}" />
+                                        <Label Text="{Binding Title}" VerticalOptions="Center" TextColor="{DynamicResource TextColor}" FontSize="{DynamicResource Font13}" FontAttributes="Bold" LineBreakMode="WordWrap" Grid.Column="1" />
+                                        <Button Text="âœ•" Command="{Binding BindingContext.RemoveTopicCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}" CommandParameter="{Binding .}" IsVisible="{Binding IsCustom}" BackgroundColor="{DynamicResource DangerColor}" TextColor="{DynamicResource ButtonTextColor}" Padding="14,10" CornerRadius="4" VerticalOptions="Center" Margin="10,0,0,0" MinimumHeightRequest="48" Grid.Column="2" SemanticProperties.Description="Remove custom analysis prompt" />
+                                    </Grid>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
-                        </FlexLayout>
-
-                        <Label Text="DATA SAMPLING" FontSize="13" FontAttributes="Bold" TextColor="#0F172A" />
-                        <HorizontalStackLayout Spacing="8" Margin="0,0,0,10">
-                            <CheckBox IsChecked="{Binding SampleDataSelection.IsSelected}" Color="#245CD6" />
-                            <Label Text="{Binding SampleDataSelection.Name}" VerticalOptions="Center" TextColor="#334155" FontSize="13" />
-                        </HorizontalStackLayout>
-
-                        <Grid ColumnDefinitions="*, Auto" Margin="0,10,0,0">
-                            <Label Grid.Column="0" Text="TABLES TO ANALYZE" FontSize="13" FontAttributes="Bold" TextColor="#0F172A" VerticalOptions="End"/>
-                            <Label Grid.Column="1" Text="{Binding SelectedTableText}" FontSize="12" FontAttributes="Bold" TextColor="#245CD6" VerticalOptions="End" />
-                        </Grid>
-
-                        <Grid ColumnDefinitions="*, Auto" ColumnSpacing="10" Margin="0,5,0,0">
-                            <SearchBar Grid.Column="0" Placeholder="Search tables..." Text="{Binding SearchQuery}" BackgroundColor="#F8FAFC" TextColor="#0F172A" CancelButtonColor="#64748B" />
-                            <Button Grid.Column="1" Text="Toggle All" Command="{Binding ToggleAllTablesCommand}" BackgroundColor="#F1F5F9" TextColor="#475569" CornerRadius="6" FontAttributes="Bold" FontSize="12" Padding="15,0"/>
-                        </Grid>
-
-                        <Border Stroke="#E2E8F0" StrokeThickness="1" BackgroundColor="#FFFFFF" HeightRequest="250">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="6" />
-                            </Border.StrokeShape>
-                            <ScrollView>
-                                <VerticalStackLayout Padding="10" Spacing="0" BindableLayout.ItemsSource="{Binding FilteredTables}">
-                                    <BindableLayout.ItemTemplate>
-                                        <DataTemplate>
-                                            <HorizontalStackLayout Spacing="8" Margin="0,2">
-                                                <CheckBox IsChecked="{Binding IsSelected}" Color="#245CD6" />
-                                                <Label Text="{Binding Name}" VerticalOptions="Center" TextColor="#334155" FontSize="13" />
-                                            </HorizontalStackLayout>
-                                        </DataTemplate>
-                                    </BindableLayout.ItemTemplate>
-                                </VerticalStackLayout>
-                            </ScrollView>
+                        </VerticalStackLayout>
+                    </Border>
+                    <VerticalStackLayout Margin="0,5,0,5" Spacing="10">
+                        <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="4">
+                            <Entry Text="{Binding CustomQuestionText}" Placeholder="Add a custom analysis prompt..." BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" SemanticProperties.Description="Add a custom analysis prompt..." />
                         </Border>
-
-                        <Grid ColumnDefinitions="*, *" ColumnSpacing="15" Margin="0,15,0,0">
-                            <Button Grid.Column="0" Text="Go Back" Command="{Binding BackToConnectionCommand}" BackgroundColor="#F1F5F9" TextColor="#475569" CornerRadius="13" HeightRequest="42" FontAttributes="Bold" />
-                            <Button Grid.Column="1" Text="Extract Schema Structure" Command="{Binding ExtractCommand}" BackgroundColor="#245CD6" TextColor="White" CornerRadius="13" HeightRequest="42" FontAttributes="Bold" />
-                        </Grid>
+                        <Button Text="Add Prompt" Command="{Binding AddCustomQuestionCommand}" BackgroundColor="{DynamicResource ButtonColor}" TextColor="{DynamicResource ButtonTextColor}" CornerRadius="13" Padding="14,10" FontAttributes="Bold" MinimumHeightRequest="48" />
                     </VerticalStackLayout>
-                </Border>
-
-                <Border Stroke="#D7E4F2" StrokeThickness="1" BackgroundColor="#F4FFFFFF" Padding="28" IsVisible="{Binding IsSchemaPreviewCardVisible}">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="24" />
-                    </Border.StrokeShape>
-                    <VerticalStackLayout Spacing="15">
-                        <Label Text="Schema Context Preview" FontSize="18" FontAttributes="Bold" TextColor="#0F172A" />
-                        <Label Text="SYNTHETIC OFFLINE DEMO — NO LIVE DATABASE" IsVisible="{Binding IsDemo}" FontSize="11" FontAttributes="Bold" TextColor="#245CD6" />
-
-                        <HorizontalStackLayout Spacing="10">
-                            <Label Text="Structural Payload:" FontSize="13" TextColor="#64748B" VerticalOptions="Center"/>
-                            <Label Text="{Binding SchemaStatsText}" TextColor="{Binding SchemaStatsColor}" FontSize="12" FontAttributes="Bold" BackgroundColor="#F1F5F9" Padding="12,6" VerticalOptions="Center" />
-                        </HorizontalStackLayout>
-
-                        <Label Text="{Binding CloudPrivacyText}" TextColor="#475569" FontSize="12" />
-
-                        <Editor Text="{Binding ExtractedJsonSchema}" HeightRequest="300" IsReadOnly="True" BackgroundColor="#F8FAFC" TextColor="#0F172A" FontFamily="Consolas" FontSize="12" />
-
-                        <FlexLayout Wrap="Wrap" JustifyContent="SpaceBetween" Margin="0,10,0,0">
-                            <Button Text="Start Over" Command="{Binding StartOverCommand}" BackgroundColor="#F1F5F9" TextColor="#475569" CornerRadius="13" HeightRequest="40" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="13" />
-                            <Button Text="Export JSON" Command="{Binding ExportCommand}" BackgroundColor="#F1F5F9" TextColor="#475569" CornerRadius="13" HeightRequest="40" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="13" />
-                            <Button Text="Evidence PDF" Command="{Binding ExportEvidencePdfCommand}" BackgroundColor="#F1F5F9" TextColor="#475569" CornerRadius="13" HeightRequest="40" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="13" />
-                            <Button Text="Visualize" Command="{Binding VisualizeCommand}" BackgroundColor="#F1F5F9" TextColor="#0F172A" CornerRadius="13" HeightRequest="40" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="13" />
-                            <Button Text="Approve" Command="{Binding ApproveSchemaCommand}" BackgroundColor="#245CD6" TextColor="White" CornerRadius="13" HeightRequest="40" MinimumWidthRequest="125" FontAttributes="Bold" FontSize="13" />
-                        </FlexLayout>
+                    <VerticalStackLayout Margin="0,10,0,0" Spacing="10">
+                        <Button Text="Go Back" Command="{Binding BackToSchemaCommand}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource MutedColor}" CornerRadius="13" FontAttributes="Bold" MinimumHeightRequest="48" Padding="14,10" />
+                        <Button Text="Generate review" Command="{Binding StartAnalysisCommand}" BackgroundColor="{DynamicResource ButtonColor}" TextColor="{DynamicResource ButtonTextColor}" CornerRadius="13" FontAttributes="Bold" MinimumHeightRequest="48" Padding="14,10" />
                     </VerticalStackLayout>
-                </Border>
-
-                <Border Stroke="#D7E4F2" StrokeThickness="1" BackgroundColor="#F4FFFFFF" Padding="28" IsVisible="{Binding IsQuestionsCardVisible}">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="24" />
-                    </Border.StrokeShape>
-                    <VerticalStackLayout Spacing="15">
-                        <Label Text="Evidence-limited schema review" FontSize="18" FontAttributes="Bold" TextColor="#0F172A" />
-                        <Label Text="AI output is a hypothesis. Query plans, permissions and workload behavior are not measured by this snapshot." FontSize="12" TextColor="#64748B" />
-
-                        <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,5">
-                            <Button Grid.Column="0" Text="Toggle All Topics" Command="{Binding ToggleAllTopicsCommand}" BackgroundColor="#F1F5F9" TextColor="#475569" CornerRadius="6" FontAttributes="Bold" FontSize="12" Padding="15,0" HeightRequest="35" HorizontalOptions="Start" />
-                            <Label Grid.Column="1" Text="{Binding SelectedTopicText}" FontSize="12" FontAttributes="Bold" TextColor="#245CD6" VerticalOptions="Center" />
-                        </Grid>
-
-                        <Border Stroke="#E2E8F0" StrokeThickness="1" BackgroundColor="#F8FAFC">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="13" />
-                            </Border.StrokeShape>
-                            <VerticalStackLayout Spacing="2" Padding="12" BindableLayout.ItemsSource="{Binding Topics}">
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate>
-                                        <HorizontalStackLayout Spacing="10" Margin="0,4">
-                                            <CheckBox IsChecked="{Binding IsSelected}" Color="#245CD6" />
-                                            <Label Text="{Binding Title}" VerticalOptions="Center" TextColor="#334155" FontSize="13" FontAttributes="Bold" />
-                                            <Button Text="✕" Command="{Binding BindingContext.RemoveTopicCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}" CommandParameter="{Binding .}" IsVisible="{Binding IsCustom}" BackgroundColor="#EF4444" TextColor="White" HeightRequest="24" WidthRequest="24" Padding="0" CornerRadius="4" VerticalOptions="Center" Margin="10,0,0,0"/>
-                                        </HorizontalStackLayout>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
-                            </VerticalStackLayout>
-                        </Border>
-
-                        <Grid ColumnDefinitions="*, Auto" ColumnSpacing="10" Margin="0,5,0,5">
-                            <Entry Grid.Column="0" Text="{Binding CustomQuestionText}" Placeholder="Add a custom analysis prompt..." BackgroundColor="#F8FAFC" TextColor="#0F172A" />
-                            <Button Grid.Column="1" Text="Add Prompt" Command="{Binding AddCustomQuestionCommand}" BackgroundColor="#64748B" TextColor="White" CornerRadius="13" Padding="15,0" FontAttributes="Bold" />
-                        </Grid>
-
-                        <Grid ColumnDefinitions="*, *" ColumnSpacing="15" Margin="0,10,0,0">
-                            <Button Grid.Column="0" Text="Go Back" Command="{Binding BackToSchemaCommand}" BackgroundColor="#F1F5F9" TextColor="#475569" CornerRadius="13" HeightRequest="42" FontAttributes="Bold" />
-                            <Button Grid.Column="1" Text="Generate review" Command="{Binding StartAnalysisCommand}" BackgroundColor="#245CD6" TextColor="White" CornerRadius="13" HeightRequest="42" FontAttributes="Bold" />
-                        </Grid>
-                    </VerticalStackLayout>
-                </Border>
-
-                <Border Stroke="#D7E4F2" StrokeThickness="1" BackgroundColor="#F4FFFFFF" Padding="28" IsVisible="{Binding IsAnalysisProgressCardVisible}">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="24" />
-                    </Border.StrokeShape>
-                    <VerticalStackLayout Spacing="15">
-                        <Label Text="Schema review in progress" FontSize="18" FontAttributes="Bold" TextColor="#0F172A" />
-                        <Label Text="Please wait while the AI processes each topic independently. This may take a few minutes." FontSize="13" TextColor="#64748B" />
-
-                        <Border Stroke="#E2E8F0" StrokeThickness="1" BackgroundColor="#F8FAFC" Padding="15">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="13" />
-                            </Border.StrokeShape>
-                            <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding SelectedTopicsForAnalysis}">
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate>
-                                        <HorizontalStackLayout Spacing="10">
-                                            <Label Text="{Binding Status}" FontSize="11" FontAttributes="Bold" VerticalOptions="Center" TextColor="#245CD6" WidthRequest="70"/>
-                                            <Label Text="{Binding Title}" FontSize="13" TextColor="#334155" VerticalOptions="Center" />
-                                        </HorizontalStackLayout>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
-                            </VerticalStackLayout>
-                        </Border>
-
-                        <ActivityIndicator IsRunning="{Binding IsAnalysisRunning}" IsVisible="{Binding IsAnalysisRunning}" Color="#245CD6" HorizontalOptions="Center" Margin="0,10,0,0" />
-                        <Label Text="{Binding CurrentTaskText}" HorizontalOptions="Center" FontSize="13" FontAttributes="Bold" TextColor="#0F172A" />
-                        <Button Text="Cancel analysis" Command="{Binding CancelAnalysisCommand}" IsVisible="{Binding IsAnalysisRunning}" BackgroundColor="#E8EFF7" TextColor="#22486F" CornerRadius="13" HorizontalOptions="Center" />
-                    </VerticalStackLayout>
-                </Border>
-
-                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#245CD6" Margin="0,10,0,0"/>
-            </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+            <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource SurfaceColor}" Padding="16" IsVisible="{Binding IsAnalysisProgressCardVisible}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="24" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="Schema review in progress" FontSize="{DynamicResource Font18}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
+                    <Label Text="Please wait while the AI processes each topic independently. This may take a few minutes." FontSize="{DynamicResource Font13}" TextColor="{DynamicResource MutedColor}" LineBreakMode="WordWrap" />
+                    <Border Stroke="{DynamicResource BoundaryColor}" StrokeThickness="1" BackgroundColor="{DynamicResource InputColor}" Padding="15">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="13" />
+                        </Border.StrokeShape>
+                        <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding SelectedTopicsForAnalysis}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate>
+                                    <VerticalStackLayout Spacing="10">
+                                        <Label Text="{Binding Status}" FontSize="{DynamicResource Font11}" FontAttributes="Bold" VerticalOptions="Center" TextColor="{DynamicResource AccentColor}" LineBreakMode="WordWrap" />
+                                        <Label Text="{Binding Title}" FontSize="{DynamicResource Font13}" TextColor="{DynamicResource TextColor}" VerticalOptions="Center" LineBreakMode="WordWrap" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </Border>
+                    <ActivityIndicator IsRunning="{Binding IsAnalysisRunning}" IsVisible="{Binding IsAnalysisRunning}" Color="{DynamicResource AccentColor}" HorizontalOptions="Center" Margin="0,10,0,0" />
+                    <Label Text="{Binding CurrentTaskText}" HorizontalOptions="Center" FontSize="{DynamicResource Font13}" FontAttributes="Bold" TextColor="{DynamicResource TextColor}" LineBreakMode="WordWrap" />
+                    <Button Text="Cancel analysis" Command="{Binding CancelAnalysisCommand}" IsVisible="{Binding IsAnalysisRunning}" BackgroundColor="{DynamicResource InputColor}" TextColor="{DynamicResource TextColor}" CornerRadius="13" HorizontalOptions="Center" MinimumHeightRequest="48" Padding="14,10" />
+                </VerticalStackLayout>
+            </Border>
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{DynamicResource AccentColor}" Margin="0,10,0,0" />
+        </VerticalStackLayout>
     </ScrollView>
 </ContentPage>
