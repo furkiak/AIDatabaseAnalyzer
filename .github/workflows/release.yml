@@ -123,8 +123,17 @@ jobs:
           ref: ${{ needs.prepare.outputs.sha }}
 
       - uses: actions/setup-dotnet@v4
+        id: dotnet
         with:
           dotnet-version: 9.0.x
+
+      # The runner also has a newer SDK, which fails to restore the .NET 9 Mac Catalyst target.
+      - name: Use the .NET 9 SDK
+        env:
+          SDK: ${{ steps.dotnet.outputs.dotnet-version }}
+        run: |
+          echo "{\"sdk\":{\"version\":\"$SDK\"}}" > global.json
+          dotnet --version
 
       - name: Install the MAUI workload
         run: dotnet workload install maui
@@ -150,6 +159,7 @@ jobs:
         run: >
           dotnet build "$PROJECT" -f net9.0-maccatalyst -c Release
           -p:EnableCodeSigning=true -p:CodesignKey=- ${XCODE_CHECK:+"$XCODE_CHECK"}
+          || { dotnet restore "$PROJECT" -v detailed | grep -i -E 'error|fail|NU[0-9]{4}|NETSDK' | tail -60; exit 1; }
 
       - name: Package
         run: |
