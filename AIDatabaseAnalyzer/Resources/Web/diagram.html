@@ -878,7 +878,9 @@ if (window.matchMedia) {
 window.addEventListener('resize', function () { /* keep current view */ });
 
 // ------------------------------------------------------------------ boot
-document.getElementById('stats').textContent = DATA.tables.length + ' tables · ' + (DATA.rels || []).length + ' relationships' + ((DATA.views || []).length ? ' · ' + DATA.views.length + ' views' : '');
+function countOf(n, one) { return n + ' ' + one + (n === 1 ? '' : 's'); }
+document.getElementById('stats').textContent = countOf(DATA.tables.length, 'table') + ' · ' + countOf((DATA.rels || []).length, 'relationship') +
+  ((DATA.views || []).length ? ' · ' + countOf(DATA.views.length, 'view') : '');
 if (!DATA.tables.length) { document.getElementById('empty').style.display = 'flex'; return; }
 document.getElementById('tableList').innerHTML = DATA.tables.map(function (t) { return '<option value="' + esc(t.n) + '">'; }).join('');
 if (DATA.meta && DATA.meta.score != null)

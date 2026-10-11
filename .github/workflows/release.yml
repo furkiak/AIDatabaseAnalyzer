@@ -1,0 +1,210 @@
+name: Release
+
+# Builds the desktop app for Windows and macOS and publishes a GitHub release.
+#   Actions → Release → Run workflow: version 2.1.0, ref main
+# The release notes are read from docs/releases/v<version>.md on the default branch.
+# Pull requests that change this workflow or the notes build both apps without publishing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version without the leading "v" (e.g. 2.1.0)
+        required: true
+        type: string
+      ref:
+        description: Branch, tag or commit to build
+        required: true
+        default: main
+        type: string
+      latest:
+        description: Mark it as the latest release
+        type: boolean
+        default: true
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - docs/releases/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.version || github.ref }}
+
+env:
+  VERSION: ${{ inputs.version || format('pr{0}', github.event.number) }}
+  BUILD_REF: ${{ inputs.ref || github.sha }}
+  PROJECT: AIDatabaseAnalyzer/AIDatabaseAnalyzer.csproj
+
+jobs:
+  prepare:
+    name: Check the version and the release notes
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.check.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check
+        id: check
+        run: |
+          sha=$(git rev-parse --verify --quiet "${BUILD_REF}^{commit}" || git rev-parse --verify --quiet "origin/${BUILD_REF}^{commit}") \
+            || { echo "::error::Cannot find '${BUILD_REF}'"; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Building $sha"
+
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "::error::'$VERSION' is not a version like 2.1.0"; exit 1; }
+            [ -s "docs/releases/v$VERSION.md" ] || { echo "::error::docs/releases/v$VERSION.md is missing"; exit 1; }
+            if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
+              echo "::error::The tag v$VERSION already exists"; exit 1
+            fi
+            app=$(git show "$sha:$PROJECT" | sed -n 's|.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*|\1|p')
+            [ "$app" = "${VERSION%%-*}" ] || { echo "::error::The app at $sha says version '$app', not $VERSION"; exit 1; }
+          fi
+
+  windows:
+    name: Windows (x64)
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Install the MAUI workload
+        run: dotnet workload install maui
+
+      # Unpackaged and self-contained: no installer, no .NET or Windows App SDK needed on the user's PC.
+      - name: Publish
+        run: >
+          dotnet publish ${{ env.PROJECT }} -f net9.0-windows10.0.19041.0 -c Release
+          -p:RuntimeIdentifierOverride=win-x64 -p:WindowsPackageType=None
+          -p:WindowsAppSDKSelfContained=true -p:SelfContained=true
+          -o "publish/AI Database Analyzer"
+
+      - name: Start the app once
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $app = Start-Process "publish/AI Database Analyzer/AIDatabaseAnalyzer.exe" -PassThru
+          Start-Sleep -Seconds 20
+          if ($app.HasExited) { Write-Error "The app exited with code $($app.ExitCode)" } else { "The app is running"; Stop-Process -Id $app.Id -Force }
+
+      - name: Zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory dist | Out-Null
+          Push-Location publish
+          7z a -tzip -mx=9 "../dist/AIDatabaseAnalyzer-$env:VERSION-windows-x64.zip" "AI Database Analyzer" | Out-Null
+          Pop-Location
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*.zip
+          if-no-files-found: error
+
+  macos:
+    name: macOS (Apple silicon and Intel)
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Install the MAUI workload
+        run: dotnet workload install maui
+
+      # The Mac Catalyst SDK is made for one Xcode version; use it when the runner has it.
+      - name: Select Xcode
+        run: |
+          packs="$(dirname "$(readlink -f "$(command -v dotnet)")")/packs"
+          want=$(for d in "$packs"/Microsoft.MacCatalyst.Sdk.net9.0_*; do if [ -d "$d" ]; then echo "${d##*_}"; fi; done | sort -V | tail -1)
+          pick() { for x in "$@"; do [ -d "$x" ] || continue; case "$x" in *[Bb]eta*|*Release_Candidate*) continue ;; esac; echo "$x"; done | sort -V | tail -1; }
+          echo "The Mac Catalyst SDK expects Xcode ${want:-?}; installed:"; printf '  %s\n' /Applications/Xcode*.app
+          xcode=""
+          if [ -n "$want" ]; then xcode=$(pick /Applications/Xcode_"$want".app /Applications/Xcode_"$want".[0-9]*.app); fi
+          if [ -z "$xcode" ]; then
+            xcode=$(pick /Applications/Xcode_*.app)
+            echo "XCODE_CHECK=-p:ValidateXcodeVersion=false" >> "$GITHUB_ENV"
+          fi
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+
+      # Release builds contain both architectures. Ad-hoc signed: there is no Apple Developer ID.
+      - name: Build
+        run: >
+          dotnet build "$PROJECT" -f net9.0-maccatalyst -c Release
+          -p:EnableCodeSigning=true -p:CodesignKey=- ${XCODE_CHECK:+"$XCODE_CHECK"}
+
+      - name: Package
+        run: |
+          app=$(find AIDatabaseAnalyzer/bin/Release/net9.0-maccatalyst -maxdepth 2 -name '*.app' -type d | awk '{ print length, $0 }' | sort -n | head -1 | cut -d' ' -f2-)
+          [ -n "$app" ] || { echo "::error::No .app was built"; exit 1; }
+          echo "Packaging $app"
+          lipo -info "$app/Contents/MacOS/AIDatabaseAnalyzer"
+          codesign --verify --deep --strict "$app" && codesign -dv "$app" 2>&1 | grep -E 'Signature|Identifier'
+          mkdir -p staging dist
+          ditto "$app" "staging/AI Database Analyzer.app"
+          ditto -c -k --sequesterRsrc --keepParent "staging/AI Database Analyzer.app" "dist/AIDatabaseAnalyzer-$VERSION-macos.zip"
+          ls -l dist
+
+      - name: Start the app once
+        continue-on-error: true
+        run: |
+          "staging/AI Database Analyzer.app/Contents/MacOS/AIDatabaseAnalyzer" & pid=$!
+          sleep 20
+          if kill -0 $pid 2> /dev/null; then echo "The app is running"; kill $pid; exit 0; fi
+          code=0; wait $pid || code=$?
+          echo "::error::The app exited with code $code"; exit 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish the release
+    if: github.event_name == 'workflow_dispatch'
+    needs: [prepare, windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+          LATEST: ${{ inputs.latest }}
+        run: |
+          notes="docs/releases/v$VERSION.md"
+          title=$(sed -n '1s/^# *//p' "$notes")
+          tail -n +2 "$notes" > release-notes.md
+          (cd dist && sha256sum -- *.zip > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          gh release create "v$VERSION" dist/* \
+            --target "$SHA" \
+            --title "${title:-v$VERSION}" \
+            --notes-file release-notes.md \
+            --latest="$LATEST"
