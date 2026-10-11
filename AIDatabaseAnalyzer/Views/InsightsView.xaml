@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:AIDatabaseAnalyzer.ViewModels"
+             xmlns:ctl="clr-namespace:AIDatabaseAnalyzer.Controls"
+             x:Class="AIDatabaseAnalyzer.Views.InsightsView"
+             x:DataType="vm:InsightsViewModel">
+
+    <ScrollView>
+        <VerticalStackLayout x:Name="Column" WidthRequest="700" Spacing="20" Padding="0,30,0,40" HorizontalOptions="Center">
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                <VerticalStackLayout Spacing="4" VerticalOptions="Center">
+                    <Label Text="{Binding DatabaseTitle}" StyleClass="LargeTitle" />
+                    <Label Text="{Binding Subtitle}" StyleClass="Subtitle" />
+                </VerticalStackLayout>
+                <HorizontalStackLayout Grid.Column="1" Spacing="10" VerticalOptions="Center">
+                    <Button Text="ER diagram" Command="{Binding VisualizeCommand}" />
+                    <Button Text="Continue to AI analysis" StyleClass="Primary" Command="{Binding ContinueCommand}" />
+                </HorizontalStackLayout>
+            </Grid>
+
+            <!-- ============================ Health ============================ -->
+            <Border StyleClass="Glass">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="30">
+                    <ctl:ScoreRing Grid.Column="0" Score="{Binding Score}" Grade="{Binding Grade}" VerticalOptions="Center" />
+                    <VerticalStackLayout Grid.Column="1" Spacing="14" VerticalOptions="Center">
+                        <Label Text="Schema health" StyleClass="Overline" />
+                        <Label Text="{Binding Headline}" StyleClass="Title" />
+                        <Label Text="An instant, offline review — no AI needed. The score weighs the severity and the share of affected objects." StyleClass="Body" />
+                        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
+                            <Border Grid.Column="0" StyleClass="Inset" Padding="12,10">
+                                <VerticalStackLayout><Label Text="{Binding TablesText}" StyleClass="BigNumber" /><Label Text="tables" StyleClass="Caption" /></VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Column="1" StyleClass="Inset" Padding="12,10">
+                                <VerticalStackLayout><Label Text="{Binding ColumnsText}" StyleClass="BigNumber" /><Label Text="columns" StyleClass="Caption" /></VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Column="2" StyleClass="Inset" Padding="12,10">
+                                <VerticalStackLayout><Label Text="{Binding RelationsText}" StyleClass="BigNumber" /><Label Text="relationships" StyleClass="Caption" /></VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Column="3" StyleClass="Inset" Padding="12,10">
+                                <VerticalStackLayout><Label Text="{Binding IndexesText}" StyleClass="BigNumber" /><Label Text="indexes" StyleClass="Caption" /></VerticalStackLayout>
+                            </Border>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+
+            <Border StyleClass="BannerWarning" IsVisible="{Binding HasWarnings}">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Some metadata could not be read" StyleClass="Headline" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Warnings}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Label Text="{Binding .}" StyleClass="Body" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border StyleClass="BannerInfo" IsVisible="{Binding HasSkipped}">
+                <Label Text="{Binding SkippedText}" StyleClass="Body" />
+            </Border>
+
+            <!-- ============================ Findings ============================ -->
+            <Border StyleClass="Glass">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="Findings" StyleClass="Title" />
+
+                    <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding SeverityChips}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FilterChip">
+                                <Border StyleClass="Pill" Margin="0,0,8,8">
+                                    <Border.Triggers>
+                                        <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource AccentGradient}" />
+                                            <Setter Property="Stroke" Value="{StaticResource Transparent}" />
+                                        </DataTrigger>
+                                    </Border.Triggers>
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding SelectCommand}" />
+                                    </Border.GestureRecognizers>
+                                    <Label Text="{Binding Text}" FontSize="13" FontAttributes="Bold">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="TextColor" Value="White" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+
+                    <Label Text="No findings — the rule-based review did not detect any issue." StyleClass="Success" IsVisible="{Binding NoFindings}" />
+
+                    <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding Findings}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FindingItem">
+                                <Border StyleClass="Inset" Padding="0">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding ToggleCommand}" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="5,*">
+                                        <BoxView Grid.Column="0" Color="{Binding SeverityColor}" WidthRequest="5" />
+                                        <VerticalStackLayout Grid.Column="1" Padding="16,12" Spacing="8">
+                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                <Border Grid.Column="0" BackgroundColor="{Binding SeverityColor}" StrokeThickness="0" Padding="9,2" VerticalOptions="Center">
+                                                    <Border.StrokeShape>
+                                                        <RoundRectangle CornerRadius="9" />
+                                                    </Border.StrokeShape>
+                                                    <Label Text="{Binding SeverityText}" TextColor="White" FontSize="10.5" FontAttributes="Bold" CharacterSpacing="0.5" />
+                                                </Border>
+                                                <Label Grid.Column="1" Text="{Binding Title}" StyleClass="Headline" VerticalOptions="Center" />
+                                                <Label Grid.Column="2" Text="{Binding CountText}" StyleClass="Caption" VerticalOptions="Center" />
+                                            </Grid>
+                                            <Label Text="{Binding Description}" StyleClass="Body" />
+                                            <VerticalStackLayout Spacing="8" IsVisible="{Binding IsExpanded}">
+                                                <Border StyleClass="Inset" Padding="12,8" IsVisible="{Binding HasObjects}">
+                                                    <Label Text="{Binding ObjectsText}" StyleClass="Mono" />
+                                                </Border>
+                                                <Label Text="{Binding Recommendation}" StyleClass="Accent" FontAttributes="None" />
+                                            </VerticalStackLayout>
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <Label Text="Tip: click a finding to see the affected objects and the recommended fix." StyleClass="Caption" IsVisible="{Binding HasFindings}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ============================ Schema payload ============================ -->
+            <Border StyleClass="Glass">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="Schema payload" StyleClass="Title" />
+                    <Label Text="{Binding TokenText}" StyleClass="Body" IsVisible="{Binding IsTokenOk}" />
+                    <Border StyleClass="BannerWarning" IsVisible="{Binding IsTokenWarningOnly}">
+                        <Label Text="{Binding TokenText}" StyleClass="Warning" FontSize="13" />
+                    </Border>
+                    <Border StyleClass="BannerError" IsVisible="{Binding IsTokenDanger}">
+                        <Label Text="{Binding TokenText}" StyleClass="Danger" FontSize="13" />
+                    </Border>
+
+                    <FlexLayout Wrap="Wrap">
+                        <Button Text="Export JSON" StyleClass="Small" Command="{Binding ExportJsonCommand}" Margin="0,0,8,8" />
+                        <Button Text="Data dictionary (.md)" StyleClass="Small" Command="{Binding ExportDictionaryCommand}" Margin="0,0,8,8" />
+                        <Button Text="Interactive diagram (.html)" StyleClass="Small" Command="{Binding ExportDiagramCommand}" Margin="0,0,8,8" />
+                        <Button Text="Copy compact JSON" StyleClass="Small" Command="{Binding CopyJsonCommand}" Margin="0,0,8,8" />
+                        <Button Text="Show / hide preview" StyleClass="Small" Command="{Binding TogglePreviewCommand}" Margin="0,0,8,8" />
+                    </FlexLayout>
+
+                    <Border StyleClass="Inset" Padding="8" IsVisible="{Binding IsPreviewVisible}">
+                        <Editor Text="{Binding SchemaPreview}" IsReadOnly="True" StyleClass="Mono" HeightRequest="340" AutoSize="Disabled" />
+                    </Border>
+                </VerticalStackLayout>
+            </Border>
+
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <Button Grid.Column="0" Text="Back to scope" Command="{Binding BackToScopeCommand}" />
+                <Button Grid.Column="2" Text="Start over" StyleClass="Danger" Command="{Binding StartOverCommand}" />
+            </Grid>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

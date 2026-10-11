@@ -1,0 +1,49 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+artifacts/
+*.dll
+*.pdb
+*.nupkg
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+*.DotSettings.user
+launchSettings.local.json
+
+# MAUI / platform
+*.apk
+*.aab
+*.ipa
+*.app
+*.msix
+*.appx
+*.pfx
+*.p12
+*.mobileprovision
+*.snk
+project.lock.json
+AppPackages/
+BundleArtifacts/
+
+# Test results and coverage
+TestResults/
+*.trx
+coverage*.xml
+*.coverage
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets — never commit keys or connection strings
+appsettings.*.json
+secrets.json
+*.env
+.env

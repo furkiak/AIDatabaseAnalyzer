@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  core-tests:
+    name: Core tests (database, insights, reports, AI orchestration)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Test
+        run: dotnet test tests/AIDatabaseAnalyzer.Tests/AIDatabaseAnalyzer.Tests.csproj --configuration Release
+
+  windows-build:
+    name: Build the desktop app (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Install the MAUI workload
+        run: dotnet workload install maui
+      - name: Build
+        run: dotnet build AIDatabaseAnalyzer/AIDatabaseAnalyzer.csproj -f net9.0-windows10.0.19041.0 --configuration Release
