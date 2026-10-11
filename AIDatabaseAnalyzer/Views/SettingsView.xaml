@@ -18,49 +18,94 @@
             <Border StyleClass="Glass">
                 <VerticalStackLayout Spacing="16">
                     <Label Text="AI engine" StyleClass="Title" />
-                    <ctl:SegmentedControl Items="{Binding Providers}" SelectedIndex="{Binding ProviderIndex, Mode=TwoWay}" />
 
-                    <!-- Ollama -->
-                    <VerticalStackLayout Spacing="14" IsVisible="{Binding IsOllama}">
-                        <Label Text="Runs on your computer: nothing leaves this machine." StyleClass="Body" />
+                    <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding ProviderTiles}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ChoiceTile">
+                                <Border StyleClass="Tile" WidthRequest="200" Margin="0,0,10,10">
+                                    <Border.Triggers>
+                                        <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource AccentGradient}" />
+                                            <Setter Property="Stroke" Value="{StaticResource Transparent}" />
+                                        </DataTrigger>
+                                    </Border.Triggers>
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding SelectCommand}" />
+                                    </Border.GestureRecognizers>
+                                    <VerticalStackLayout Spacing="1">
+                                        <Label Text="{Binding Title}" FontSize="14" FontAttributes="Bold">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="TextColor" Value="White" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                        <Label Text="{Binding Caption}" StyleClass="Caption">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="TextColor" Value="#E6FFFFFF" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
 
-                        <VerticalStackLayout Spacing="6">
-                            <Label Text="Ollama address" StyleClass="FieldLabel" />
-                            <Border StyleClass="Field"><Entry Text="{Binding OllamaUrl}" Placeholder="http://localhost:11434" /></Border>
-                        </VerticalStackLayout>
+                    <Label Text="{Binding PrivacyNote}" StyleClass="Body" />
 
-                        <Grid ColumnDefinitions="*,160" ColumnSpacing="12">
-                            <VerticalStackLayout Grid.Column="0" Spacing="6">
-                                <Label Text="Model" StyleClass="FieldLabel" />
-                                <Border StyleClass="Field"><Entry Text="{Binding OllamaModel}" Placeholder="qwen2.5-coder" /></Border>
-                            </VerticalStackLayout>
-                            <VerticalStackLayout Grid.Column="1" Spacing="6">
-                                <Label Text="Context (tokens)" StyleClass="FieldLabel" />
-                                <Border StyleClass="Field"><Entry Text="{Binding OllamaContext}" Placeholder="32768" Keyboard="Numeric" /></Border>
-                            </VerticalStackLayout>
+                    <!-- API key -->
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding ShowApiKey}">
+                        <Label Text="{Binding ApiKeyLabel}" StyleClass="FieldLabel" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Border Grid.Column="0" StyleClass="Field"><Entry Text="{Binding ApiKey}" IsPassword="{Binding IsKeyHidden}" Placeholder="{Binding ApiKeyPlaceholder}" /></Border>
+                            <Button Grid.Column="1" Text="Show / hide" StyleClass="Small" Command="{Binding ToggleKeyVisibilityCommand}" VerticalOptions="Center" />
                         </Grid>
-                        <Label Text="A larger context lets the model read bigger schemas but needs much more memory. 16 384 – 32 768 fits most laptops." StyleClass="Caption" />
-                        <Button Text="Get Ollama" StyleClass="Link" Command="{Binding OpenOllamaPageCommand}" HorizontalOptions="Start" Padding="0" HeightRequest="28" />
+                        <Label Text="Keys are kept in the system keychain (Keychain on macOS, Credential Locker on Windows), never in plain files." StyleClass="Caption" />
                     </VerticalStackLayout>
 
-                    <!-- Gemini -->
-                    <VerticalStackLayout Spacing="14" IsVisible="{Binding IsGemini}">
-                        <Label Text="Runs in Google's cloud: schema metadata is sent to Google Gemini. Sample rows are masked unless you turn the privacy shield off." StyleClass="Body" />
+                    <!-- Address -->
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding ShowBaseUrl}">
+                        <Label Text="Server address" StyleClass="FieldLabel" />
+                        <Border StyleClass="Field"><Entry Text="{Binding BaseUrl}" Placeholder="{Binding BaseUrlPlaceholder}" /></Border>
+                    </VerticalStackLayout>
 
-                        <VerticalStackLayout Spacing="6">
-                            <Label Text="API key" StyleClass="FieldLabel" />
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                <Border Grid.Column="0" StyleClass="Field"><Entry Text="{Binding GeminiApiKey}" IsPassword="{Binding IsKeyHidden}" Placeholder="AIza…" /></Border>
-                                <Button Grid.Column="1" Text="Show / hide" StyleClass="Small" Command="{Binding ToggleKeyVisibilityCommand}" VerticalOptions="Center" />
-                            </Grid>
-                            <Button Text="Get a free API key" StyleClass="Link" Command="{Binding OpenKeyPageCommand}" HorizontalOptions="Start" Padding="0" HeightRequest="28" />
-                        </VerticalStackLayout>
-
-                        <VerticalStackLayout Spacing="6">
+                    <!-- Model and context -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout Grid.Column="0" Spacing="6">
                             <Label Text="Model" StyleClass="FieldLabel" />
-                            <Border StyleClass="Field"><Entry Text="{Binding GeminiModel}" Placeholder="gemini-3.1-flash-lite-preview" /></Border>
+                            <Border StyleClass="Field"><Entry Text="{Binding Model}" Placeholder="{Binding ModelPlaceholder}" /></Border>
                         </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1" Spacing="6" WidthRequest="160" IsVisible="{Binding ShowContext}">
+                            <Label Text="Context (tokens)" StyleClass="FieldLabel" />
+                            <Border StyleClass="Field"><Entry Text="{Binding ContextWindow}" Placeholder="32768" Keyboard="Numeric" /></Border>
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding SuggestedModels}" IsVisible="{Binding HasSuggestions}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FilterChip">
+                                <Border StyleClass="Pill" Margin="0,0,8,6">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding SelectCommand}" />
+                                    </Border.GestureRecognizers>
+                                    <Label Text="{Binding Text}" StyleClass="Mono" FontSize="12" />
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+
+                    <Label Text="A larger context lets a local model read bigger schemas but needs much more memory. 16 384 – 32 768 fits most laptops." StyleClass="Caption" IsVisible="{Binding ShowContext}" />
+
+                    <!-- Parallel requests -->
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding ShowParallel}">
+                        <Label Text="Topics analysed at the same time" StyleClass="FieldLabel" />
+                        <ctl:SegmentedControl Items="{Binding ParallelOptions}" SelectedIndex="{Binding ParallelIndex, Mode=TwoWay}" HorizontalOptions="Start" />
+                        <Label Text="More parallel requests finish large analyses faster but reach rate limits sooner. Local servers always run one at a time." StyleClass="Caption" />
                     </VerticalStackLayout>
+
+                    <Button Text="{Binding SignupText}" StyleClass="Link" Command="{Binding OpenSignupPageCommand}" IsVisible="{Binding HasSignupLink}" HorizontalOptions="Start" Padding="0" HeightRequest="28" />
 
                     <Border StyleClass="BannerWarning" IsVisible="{Binding HasSecretsNotice}">
                         <Label Text="{Binding SecretsNotice}" StyleClass="Warning" FontSize="13" />

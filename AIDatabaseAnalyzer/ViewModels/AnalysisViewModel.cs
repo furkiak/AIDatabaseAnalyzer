@@ -42,6 +42,7 @@ public partial class AnalysisViewModel : ObservableObject
     private AnalysisReport? _lastReport;
     private string _categoryFilter = AllCategory;
     private object? _cloudConfirmedFor;
+    private bool _applyingPreset;
 
     public AnalysisViewModel(
         WorkspaceSession session,
@@ -63,6 +64,10 @@ public partial class AnalysisViewModel : ObservableObject
         foreach (var topic in TopicCatalog.CreateDefaults()) AddTopic(topic);
         LoadCustomTopics();
 
+        foreach (var preset in TopicCatalog.Presets)
+            PresetChips.Add(new FilterChip(preset.Name, preset.Name, ApplyPreset));
+        ApplyPreset(PresetChips[0], announce: false);
+
         CategoryChips.Add(new FilterChip(AllCategory, AllCategory, Select) { IsSelected = true });
         foreach (string category in TopicCatalog.Categories)
             CategoryChips.Add(new FilterChip(category, category, Select));
@@ -82,6 +87,7 @@ public partial class AnalysisViewModel : ObservableObject
 
     public ObservableCollection<AnalysisTopic> Topics { get; } = new();
     public ObservableCollection<FilterChip> CategoryChips { get; } = new();
+    public ObservableCollection<FilterChip> PresetChips { get; } = new();
     public ObservableCollection<AnalysisTopic> RunItems { get; } = new();
 
     [ObservableProperty] private IReadOnlyList<AnalysisTopic> visibleTopics = Array.Empty<AnalysisTopic>();
@@ -104,6 +110,8 @@ public partial class AnalysisViewModel : ObservableObject
     [ObservableProperty] private double progress;
     [ObservableProperty] private string statusText = "";
     [ObservableProperty] private string resultText = "";
+    [ObservableProperty] private string usageText = "";
+    [ObservableProperty] private string presetDescription = "";
     [ObservableProperty] private bool canRetry;
     [ObservableProperty] private bool hasResult;
 
@@ -120,7 +128,27 @@ public partial class AnalysisViewModel : ObservableObject
 
     private void OnTopicChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(AnalysisTopic.IsSelected)) UpdateSelectionInfo();
+        if (e.PropertyName != nameof(AnalysisTopic.IsSelected) || _applyingPreset) return;
+        // A manual change means the selection no longer matches the highlighted preset.
+        foreach (var c in PresetChips) c.IsSelected = false;
+        PresetDescription = "";
+        UpdateSelectionInfo();
+    }
+
+    private void ApplyPreset(FilterChip chip) => ApplyPreset(chip, announce: true);
+
+    private void ApplyPreset(FilterChip chip, bool announce)
+    {
+        var preset = TopicCatalog.Presets.FirstOrDefault(p => p.Name == chip.Key);
+        if (preset is null) return;
+
+        _applyingPreset = true;
+        foreach (var topic in Topics) topic.IsSelected = preset.Includes(topic);
+        _applyingPreset = false;
+        foreach (var c in PresetChips) c.IsSelected = c == chip;
+        PresetDescription = preset.Description;
+        UpdateSelectionInfo();
+        if (announce) _notices.Show($"“{preset.Name}”: {Topics.Count(t => t.IsSelected)} topics selected.", NoticeKind.Info);
     }
 
     private void Select(FilterChip chip)
@@ -164,11 +192,20 @@ public partial class AnalysisViewModel : ObservableObject
         int selected = Topics.Count(t => t.IsSelected);
         SelectionText = $"{selected} of {Topics.Count} topics selected";
 
-        int schemaTokens = SchemaSerializer.EstimateTokens(_session.SchemaJson);
-        long total = (long)selected * (schemaTokens + 500) + 2L * 6000;
+        int schemaTokens = SchemaSerializer.EstimateTokens(_session.SchemaJson) + 900;
+        long total = (long)(selected + 2) * (schemaTokens + 500) + 2L * 6000;
+        var llm = _settings.GetLlmSettings();
+        string caching = llm.Provider switch
+        {
+            LlmProvider.Claude => "Claude reads the schema from its prompt cache after the first topic (about a tenth of the price)",
+            LlmProvider.Ollama => "Ollama reuses the processed schema between topics",
+            _ => $"{llm.ProviderName} caches the identical schema prefix automatically"
+        };
+        int limited = Topics.Count(t => t.IsSelected && t.HasLimitation);
         EstimateText = selected == 0
             ? "Select at least one topic."
-            : $"≈ {FormatTokens(total)} input tokens in total ({FormatTokens(schemaTokens)} schema context per topic — identical prefixes are cached by Gemini and Ollama).";
+            : $"≈ {FormatTokens(total)} input tokens in total, {FormatTokens(schemaTokens)} schema context per request — {caching}."
+              + (limited > 0 ? $" {limited} selected topic(s) lack data they need (marked below)." : "");
     }
 
     private static string FormatTokens(long tokens) =>
@@ -240,6 +277,8 @@ public partial class AnalysisViewModel : ObservableObject
 
     private void OnSchemaChanged()
     {
+        foreach (var t in Topics)
+            t.Limitation = _session.Schema is { } schema ? TopicCatalog.Limitation(t.Needs, schema) : null;
         _lastReport = null;
         HasRun = false;
         HasResult = false;
@@ -262,16 +301,16 @@ public partial class AnalysisViewModel : ObservableObject
     public void RefreshProviderInfo()
     {
         var llm = _settings.GetLlmSettings();
-        ProviderText = $"{llm.ProviderName} · {llm.ModelName}";
+        ProviderText = $"{llm.ProviderName} · {llm.ModelName}" + (llm.Parallelism > 1 ? $" · {llm.Parallelism} at a time" : "");
 
-        if (llm.Provider == LlmProvider.Gemini && string.IsNullOrWhiteSpace(llm.GeminiApiKey))
+        if (MissingKey(llm))
         {
-            ProviderWarning = "Gemini needs an API key. Open Settings to add it, or switch to a local Ollama model.";
+            ProviderWarning = $"{llm.ProviderName} needs an API key. Open Settings to add it, or switch to a local model.";
             ProviderWarningVisible = true;
         }
         else if (!llm.IsLocal)
         {
-            ProviderWarning = "Cloud model: schema metadata (and sample rows, if extracted) are sent to Google. Use Ollama to keep everything on this machine.";
+            ProviderWarning = $"Cloud model: schema metadata (and sample rows, if extracted) are sent to {llm.ProviderName}. Use Ollama or a local server to keep everything on this machine.";
             ProviderWarningVisible = true;
         }
         else
@@ -279,6 +318,9 @@ public partial class AnalysisViewModel : ObservableObject
             ProviderWarningVisible = false;
         }
     }
+
+    private static bool MissingKey(LlmSettings llm) =>
+        llm.Info.NeedsApiKey && !llm.Info.ApiKeyOptional && string.IsNullOrWhiteSpace(llm.ApiKey);
 
     [RelayCommand]
     private void OpenSettings() => _session.TryNavigate(AppSection.Settings);
@@ -306,9 +348,9 @@ public partial class AnalysisViewModel : ObservableObject
         var llm = _settings.GetLlmSettings();
         RefreshProviderInfo();
 
-        if (llm.Provider == LlmProvider.Gemini && string.IsNullOrWhiteSpace(llm.GeminiApiKey))
+        if (MissingKey(llm))
         {
-            _notices.Show("Add your Gemini API key in Settings first.", NoticeKind.Error);
+            _notices.Show($"Add your {llm.ProviderName} API key in Settings first.", NoticeKind.Error);
             _session.TryNavigate(AppSection.Settings);
             return;
         }
@@ -317,8 +359,8 @@ public partial class AnalysisViewModel : ObservableObject
         {
             int samples = schema.SampleData.Values.Sum(r => r.Count);
             string detail = samples > 0
-                ? $"The schema of “{schema.DatabaseName}” and {samples} sample row(s) {(schema.SampleData.Count > 0 ? "(sensitive-looking values are masked when the privacy shield was on)" : "")} will be sent to Google Gemini."
-                : $"The schema of “{schema.DatabaseName}” (no row data) will be sent to Google Gemini.";
+                ? $"The schema of “{schema.DatabaseName}” and {samples} sample row(s) (sensitive-looking values are masked when the privacy shield was on) will be sent to {llm.ProviderName}."
+                : $"The schema of “{schema.DatabaseName}” (no row data) will be sent to {llm.ProviderName}.";
             if (!await _dialogs.ConfirmAsync("Send data to the cloud?", detail + "\n\nContinue?", "Send", "Cancel")) return;
             _cloudConfirmedFor = schema;
         }
@@ -340,6 +382,7 @@ public partial class AnalysisViewModel : ObservableObject
         HasResult = false;
         CanRetry = false;
         Progress = 0;
+        UsageText = "";
         StatusText = "Preparing the analysis…";
 
         var request = new AnalysisRequest
@@ -382,6 +425,7 @@ public partial class AnalysisViewModel : ObservableObject
         }
 
         Progress = p.Total == 0 ? 0 : Math.Clamp(p.Completed / (double)p.Total, 0, 1);
+        if (p.Usage.TotalTokens > 0) UsageText = $"{p.Completed} of {p.Total} sections · {p.Usage}";
         StatusText = p.Status switch
         {
             AnalysisStatus.Processing => $"Analyzing: {p.Message}",
@@ -420,6 +464,7 @@ public partial class AnalysisViewModel : ObservableObject
         Progress = 1;
         StatusText = cancelled ? "Cancelled — partial report saved." : "Analysis complete.";
         ResultText = $"{ok} section(s) completed" + (failed > 0 ? $", {failed} failed" : "") + $".{pdfNote}";
+        if (report.UsageText.Length > 0) UsageText = report.UsageText;
         HasResult = true;
         _notices.Show(cancelled ? "Partial report saved to Reports." : "Your report is ready.", failed > 0 ? NoticeKind.Warning : NoticeKind.Success);
     }

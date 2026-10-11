@@ -297,7 +297,8 @@ public static class SchemaInsightsService
                 string type = col.BaseType.ToLowerInvariant();
                 bool legacySqlServer = c.Schema.Engine == DbEngine.SqlServer && type is "text" or "ntext" or "image";
                 bool moneyPostgres = c.Schema.Engine == DbEngine.PostgreSql && type == "money";
-                if (legacySqlServer || moneyPostgres) hits.Add($"{t.FullName}.{col.Name} ({col.DataType})");
+                bool longOracle = c.Schema.Engine == DbEngine.Oracle && type is "long" or "long raw";
+                if (legacySqlServer || moneyPostgres || longOracle) hits.Add($"{t.FullName}.{col.Name} ({col.DataType})");
             }
         }
 
@@ -305,7 +306,7 @@ public static class SchemaInsightsService
         c.Add("DEPRECATED_TYPES", FindingSeverity.Medium, FindingCategory.Maintainability,
             "Deprecated or discouraged data types",
             "These types are deprecated or have known pitfalls (limited functions, locale dependent rounding).",
-            "Use VARCHAR(MAX) / NVARCHAR(MAX) / VARBINARY(MAX) on SQL Server and NUMERIC on PostgreSQL.",
+            "Use VARCHAR(MAX) / NVARCHAR(MAX) / VARBINARY(MAX) on SQL Server, NUMERIC on PostgreSQL and CLOB / BLOB instead of LONG on Oracle.",
             hits, c.Schema.ColumnCount);
     }
 
@@ -328,6 +329,8 @@ public static class SchemaInsightsService
 
     private static void DatesStoredAsText(Context c)
     {
+        // SQLite has no date type: ISO-8601 text is its documented way to store dates.
+        if (c.Schema.Engine == DbEngine.Sqlite) return;
         var hits = new List<string>();
         foreach (var t in c.Schema.Tables)
             foreach (var col in t.Columns)
@@ -486,7 +489,8 @@ public static class SchemaInsightsService
 
         if (underscore) return upper && !lower ? "UPPER_SNAKE" : upper ? "Mixed_Snake" : "snake_case";
         if (!upper) return null;
-        if (!lower) return name.Length > 2 ? "UPPERCASE" : null;
+        // A single upper-case word (CUSTOMERS) is simply UPPER_SNAKE without a second word, as Oracle names usually are.
+        if (!lower) return name.Length > 2 ? "UPPER_SNAKE" : null;
         return char.IsUpper(name[0]) ? "PascalCase" : "camelCase";
     }
 
@@ -720,7 +724,17 @@ public static class SchemaInsightsService
         return sb.ToString();
     }
 
-    internal static string TypeFamily(string baseType) => baseType.ToLowerInvariant() switch
+    internal static string TypeFamily(string baseType)
+    {
+        // Oracle reports TIMESTAMP(6) / TIMESTAMP(6) WITH TIME ZONE as the base type; compare without precision.
+        string type = baseType.ToLowerInvariant().Trim();
+        int paren = type.IndexOf('(');
+        if (paren > 0) type = type[..paren].Trim();
+        if (type.StartsWith("timestamp", StringComparison.Ordinal)) return "datetime";
+        return BaseFamily(type);
+    }
+
+    private static string BaseFamily(string type) => type switch
     {
         "int" or "integer" or "int4" or "mediumint" or "serial" => "int",
         "bigint" or "int8" or "bigserial" => "bigint",
@@ -728,12 +742,14 @@ public static class SchemaInsightsService
         "tinyint" => "tinyint",
         "bit" or "bool" or "boolean" => "bool",
         "char" or "varchar" or "nchar" or "nvarchar" or "bpchar" or "character" or "character varying" or "text" or "ntext"
-            or "tinytext" or "mediumtext" or "longtext" or "citext" or "name" => "string",
-        "float" or "float4" or "float8" or "real" or "double" or "double precision" => "float",
-        "decimal" or "numeric" or "money" or "smallmoney" => "decimal",
+            or "tinytext" or "mediumtext" or "longtext" or "citext" or "name"
+            or "varchar2" or "nvarchar2" or "clob" or "nclob" or "long" => "string",
+        "float" or "float4" or "float8" or "real" or "double" or "double precision" or "binary_float" or "binary_double" => "float",
+        "decimal" or "numeric" or "money" or "smallmoney" or "number" => "decimal",
         "uniqueidentifier" or "uuid" => "guid",
         "datetime" or "datetime2" or "smalldatetime" or "timestamp" or "timestamptz" or "datetimeoffset" => "datetime",
-        "binary" or "varbinary" or "bytea" or "blob" or "tinyblob" or "mediumblob" or "longblob" or "image" => "binary",
+        "binary" or "varbinary" or "bytea" or "blob" or "tinyblob" or "mediumblob" or "longblob" or "image"
+            or "raw" or "long raw" or "bfile" => "binary",
         var other => other
     };
 

@@ -167,6 +167,19 @@
         </Setter>
     </Style>
 
+    <!-- Selectable card (AI provider, database engine, preset); the selected state is set by a DataTrigger -->
+    <Style TargetType="Border" Class="Tile">
+        <Setter Property="Background" Value="{AppThemeBinding Light={StaticResource InsetFillLight}, Dark={StaticResource InsetFillDark}}" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource HairlineBrushLight}, Dark={StaticResource HairlineBrushDark}}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="14,10" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="16" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style TargetType="Border" Class="PillSelected">
         <Setter Property="Background" Value="{StaticResource AccentGradient}" />
         <Setter Property="Stroke" Value="{StaticResource Transparent}" />

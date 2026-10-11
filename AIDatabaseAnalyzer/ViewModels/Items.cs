@@ -33,6 +33,29 @@ public partial class FilterChip : ObservableObject
     private void Select() => _select(this);
 }
 
+/// <summary>A selectable card with a title and a short caption (AI provider, database engine, topic preset).</summary>
+public partial class ChoiceTile : ObservableObject
+{
+    private readonly Action<ChoiceTile> _select;
+
+    public ChoiceTile(int key, string title, string caption, Action<ChoiceTile> select)
+    {
+        Key = key;
+        Title = title;
+        Caption = caption;
+        _select = select;
+    }
+
+    public int Key { get; }
+    public string Title { get; }
+    public string Caption { get; }
+
+    [ObservableProperty] private bool isSelected;
+
+    [RelayCommand]
+    private void Select() => _select(this);
+}
+
 /// <summary>A finding as displayed in the Insights list.</summary>
 public partial class FindingItem : ObservableObject
 {

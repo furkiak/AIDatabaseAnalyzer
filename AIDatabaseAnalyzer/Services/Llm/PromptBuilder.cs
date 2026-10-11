@@ -1,12 +1,13 @@
 using System.Text;
 using AIDatabaseAnalyzer.Models;
-using AIDatabaseAnalyzer.Services.Database;
 using AIDatabaseAnalyzer.Services.Insights;
 
 namespace AIDatabaseAnalyzer.Services.Llm;
 
-/// <summary>Builds prompts so that every request shares the same (large) prefix: the schema comes first, the task last.
-/// Both Ollama and Gemini reuse the already processed prefix, which makes dozens of topics far faster and cheaper.</summary>
+/// <summary>
+/// Builds prompts so that every request of a run shares the same (large) system prompt: instructions and schema first,
+/// the task last. Claude caches that prefix explicitly; OpenAI, DeepSeek, Gemini and Ollama reuse it automatically.
+/// </summary>
 public static class PromptBuilder
 {
     public static readonly string[] Languages = { "English", "Türkçe" };
@@ -14,77 +15,121 @@ public static class PromptBuilder
     public static string LanguageInstruction(string language) =>
         language.StartsWith("T", StringComparison.OrdinalIgnoreCase) ? "Turkish (Türkçe)" : "English";
 
-    /// <summary>The part of the prompt that is identical for every topic.</summary>
-    public static string SchemaContext(DatabaseSchema schema, string schemaJson)
+    /// <summary>The SQL dialect the model should write.</summary>
+    public static string SqlDialect(DbEngine engine) => engine switch
+    {
+        DbEngine.SqlServer => "SQL Server (T-SQL)",
+        DbEngine.PostgreSql => "PostgreSQL",
+        DbEngine.MySql => "MySQL / MariaDB",
+        DbEngine.Sqlite => "SQLite",
+        DbEngine.Oracle => "Oracle (SQL and PL/SQL)",
+        _ => "standard SQL"
+    };
+
+    private static string EngineNotes(DbEngine engine) => engine switch
+    {
+        DbEngine.Sqlite => "- SQLite specifics: there are no stored procedures, users or schemas; ALTER TABLE is limited (adding constraints needs a table rebuild); column types are affinities, so declared lengths are not enforced; foreign keys only work with PRAGMA foreign_keys = ON.",
+        DbEngine.Oracle => "- Oracle specifics: use VARCHAR2/NUMBER/TIMESTAMP types, identity columns or sequences, and PL/SQL blocks; DDL commits implicitly; empty strings are NULL.",
+        DbEngine.MySql => "- MySQL specifics: assume InnoDB; mention when advice differs between MySQL 8 and MariaDB.",
+        DbEngine.PostgreSql => "- PostgreSQL specifics: prefer CREATE INDEX CONCURRENTLY and other online variants for large tables.",
+        DbEngine.SqlServer => "- SQL Server specifics: mention ONLINE = ON (Enterprise / Azure SQL) for operations on large tables.",
+        _ => ""
+    };
+
+    public static string SchemaHeader(DatabaseSchema schema)
+    {
+        string version = string.IsNullOrWhiteSpace(schema.ServerVersion) ? "" : $", version {schema.ServerVersion.Split('\n')[0].Trim()}";
+        return $"Database \"{schema.DatabaseName}\" ({schema.Engine.DisplayName()}{version}): {schema.Tables.Count} tables, {schema.ColumnCount} columns, {schema.ForeignKeys.Count} foreign keys.";
+    }
+
+    /// <summary>
+    /// The part of every request that stays the same during a run: role, answer rules, schema and the offline findings.
+    /// </summary>
+    public static string SystemPrompt(DatabaseSchema schema, string schemaJson, SchemaInsights? insights, string language)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"You are a senior database architect and DBA reviewing the {schema.Engine.DisplayName()} database \"{schema.DatabaseName}\".");
-        sb.AppendLine("The schema is given as compact JSON:");
+        sb.AppendLine($"You are a senior database architect and DBA reviewing a {schema.Engine.DisplayName()} database.");
+        sb.AppendLine(SchemaHeader(schema));
+        sb.AppendLine("Each request contains one review task about this database. Answer only that task.");
+        sb.AppendLine();
+        AppendRules(sb, schema.Engine, language);
+        sb.AppendLine();
+        sb.AppendLine("## Schema format");
+        sb.AppendLine("The schema is compact JSON:");
         sb.AppendLine("- \"Tables\": table name -> { \"Rows\": estimated row count, \"Columns\": [\"name type [PK] [IDENTITY] NULL|NOT NULL [DEFAULT x]\"] }");
         sb.AppendLine("- \"ForeignKeys\", \"Indexes\", \"Constraints\" (CHECK) as one-line strings; \"Triggers\", \"Views\", \"StoredProcedures\" with optional SQL \"Definition\"");
         sb.AppendLine("- \"SampleData\": a few real rows per table; values may be shortened or masked for privacy.");
+        sb.AppendLine("Sections that were not extracted are missing from the JSON.");
         sb.AppendLine();
         sb.AppendLine("<schema>");
         sb.AppendLine(schemaJson);
         sb.AppendLine("</schema>");
+        sb.Append(FindingsDigest(insights));
         return sb.ToString();
     }
 
-    public static string TopicPrompt(string schemaContext, AnalysisTopic topic, string language) =>
-        $"""
-        {schemaContext}
-        ## Task
-        {topic.Prompt}
+    /// <summary>A small system prompt without the schema, for summaries when the context window is tight (local models).</summary>
+    public static string CompactSystemPrompt(DatabaseSchema schema, SchemaInsights? insights, string language)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"You are a senior database architect and DBA writing the conclusion of a review of a {schema.Engine.DisplayName()} database.");
+        sb.AppendLine(SchemaHeader(schema));
+        sb.AppendLine();
+        AppendRules(sb, schema.Engine, language);
+        sb.Append(FindingsDigest(insights));
+        return sb.ToString();
+    }
 
-        ## Output rules
-        - Write the answer in {LanguageInstruction(language)}.
-        - Use Markdown with short headings, bullet lists and tables where they help.
-        - Refer to real table, column and index names from the schema. Never invent objects.
-        - Give every finding a severity (Critical, High, Medium, Low) and a concrete fix (SQL for the {SqlFlavor(schemaContext)} engine when useful).
-        - If the schema does not contain enough information for this task, say so briefly instead of guessing.
-        - Be concise: no introduction, do not repeat the task.
+    private static void AppendRules(StringBuilder sb, DbEngine engine, string language)
+    {
+        sb.AppendLine("## How to answer");
+        sb.AppendLine($"- Write in {LanguageInstruction(language)}.");
+        sb.AppendLine("- Use Markdown with short headings, bullet lists and tables where they help. No introduction; do not repeat the task.");
+        sb.AppendLine("- Refer only to objects that exist in the schema and write their names exactly as they appear there, in backticks (for example `dbo.Orders` or `Orders.CustomerId`). Never invent tables, columns or indexes.");
+        sb.AppendLine($"- Give every finding a severity (Critical, High, Medium or Low) and a concrete fix. Write SQL for {SqlDialect(engine)} when it helps, in ```sql blocks.");
+        sb.AppendLine("- If the schema does not contain what the task needs (for example no sample rows or no code definitions were extracted), say so in one sentence instead of guessing.");
+        string notes = EngineNotes(engine);
+        if (notes.Length > 0) sb.AppendLine(notes);
+    }
+
+    public static string TopicTask(AnalysisTopic topic) =>
+        $"""
+        ## Task: {topic.Title}
+        {topic.Prompt}
         """;
 
-    public static string SummaryPrompt(string schemaHeader, string digest, SchemaInsights? insights, string language) =>
+    public static string SummaryTask(string digest) =>
         $"""
-        {schemaHeader}
+        Below are the condensed results of the review (expert analyses by topic). The automated findings are in the system prompt.
 
-        Below are the condensed results of an automated review (offline checks and expert analyses by topic).
-
-        {FindingsDigest(insights)}
         {digest}
 
         ## Task
         Write an **Executive Summary** for management and the technical lead: the overall health of the database, the 5 most important risks (with severity and business impact) and the biggest strengths.
-        Keep it under 400 words. Write in {LanguageInstruction(language)} using Markdown. Do not invent facts that are not in the results.
+        Keep it under 400 words. Do not invent facts that are not in the results.
         """;
 
-    public static string ActionPlanPrompt(string schemaHeader, string digest, SchemaInsights? insights, string language) =>
+    public static string ActionPlanTask(string digest) =>
         $"""
-        {schemaHeader}
+        Below are the condensed results of the review (expert analyses by topic). The automated findings are in the system prompt.
 
-        Below are the condensed results of an automated review (offline checks and expert analyses by topic).
-
-        {FindingsDigest(insights)}
         {digest}
 
         ## Task
         Create a **Prioritized Action Plan**: a Markdown table with the columns Priority (P0–P3), Action, Affected objects, Effort (S/M/L) and Expected benefit,
         followed by a short suggested order of execution (quick wins first, risky changes last).
-        Write in {LanguageInstruction(language)}. Merge duplicates and do not invent objects that are not in the results.
+        Merge duplicates and do not invent objects that are not in the results.
         """;
-
-    public static string SchemaHeader(DatabaseSchema schema) =>
-        $"Database \"{schema.DatabaseName}\" ({schema.Engine.DisplayName()}): {schema.Tables.Count} tables, {schema.ColumnCount} columns, {schema.ForeignKeys.Count} foreign keys.";
 
     private static string FindingsDigest(SchemaInsights? insights)
     {
         if (insights is null || insights.Findings.Count == 0) return "";
         var sb = new StringBuilder();
-        sb.AppendLine($"### Automated checks (health score {insights.Score}/100)");
-        foreach (var f in insights.Findings.Where(f => f.Severity >= FindingSeverity.Low).Take(20))
-            sb.AppendLine($"- [{f.Severity}] {f.Title} ({f.Count}): {string.Join(", ", f.Objects.Take(4))}");
         sb.AppendLine();
+        sb.AppendLine($"## Automated checks (health score {insights.Score}/100, grade {insights.Grade})");
+        sb.AppendLine("An offline rule engine already reported the findings below. Build on them, confirm or refute them with evidence, and prioritise; do not merely repeat them.");
+        foreach (var f in insights.Findings.Where(f => f.Severity >= FindingSeverity.Low).Take(25))
+            sb.AppendLine($"- [{f.Severity}] {f.Title} ({f.Count}): {string.Join(", ", f.Objects.Take(5))}{(f.Objects.Count > 5 ? ", …" : "")}");
         return sb.ToString();
     }
 
@@ -106,10 +151,4 @@ public static class PromptBuilder
         }
         return sb.ToString();
     }
-
-    private static string SqlFlavor(string schemaContext) =>
-        schemaContext.Contains("SQL Server", StringComparison.Ordinal) ? "SQL Server (T-SQL)"
-        : schemaContext.Contains("PostgreSQL", StringComparison.Ordinal) ? "PostgreSQL"
-        : schemaContext.Contains("MySQL", StringComparison.Ordinal) ? "MySQL / MariaDB"
-        : "database";
 }

@@ -12,8 +12,19 @@ public static class SqlCatalog
     {
         "image", "binary", "varbinary", "timestamp", "rowversion", "geometry", "geography", "hierarchyid", "sql_variant",
         "bytea", "blob", "tinyblob", "mediumblob", "longblob", "bit varying", "point", "linestring", "polygon", "multipoint",
-        "multilinestring", "multipolygon", "geometrycollection"
+        "multilinestring", "multipolygon", "geometrycollection",
+        "raw", "long raw", "long", "bfile", "sdo_geometry", "ordsys.ordimage"
     };
+
+    /// <summary>Oracle: every catalog query is scoped to the schema chosen with ALTER SESSION SET CURRENT_SCHEMA.</summary>
+    private const string OracleSchema = "SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')";
+
+    private const string OracleSource =
+        "(SELECT LISTAGG(s.text, '' ON OVERFLOW TRUNCATE '…' WITHOUT COUNT) WITHIN GROUP (ORDER BY s.line) " +
+        "FROM all_source s WHERE s.owner = o.owner AND s.name = o.object_name AND s.type = o.object_type)";
+
+    /// <summary>SQLite: user tables only (internal sqlite_* tables are hidden).</summary>
+    private const string SqliteTables = "m.type = 'table' AND m.name NOT LIKE 'sqlite\\_%' ESCAPE '\\'";
 
     /// <summary>True when sample queries should skip this column (large or unreadable binary payloads).</summary>
     public static bool IsBinaryLike(string baseType) =>
@@ -24,8 +35,8 @@ public static class SqlCatalog
     public static string Quote(DbEngine engine, string identifier) => engine switch
     {
         DbEngine.SqlServer => "[" + identifier.Replace("]", "]]") + "]",
-        DbEngine.PostgreSql => "\"" + identifier.Replace("\"", "\"\"") + "\"",
-        _ => "`" + identifier.Replace("`", "``") + "`"
+        DbEngine.MySql => "`" + identifier.Replace("`", "``") + "`",
+        _ => "\"" + identifier.Replace("\"", "\"\"") + "\"" // PostgreSQL, Oracle, SQLite
     };
 
     public static string QuoteTable(DbEngine engine, TableInfo table) =>
@@ -42,6 +53,11 @@ public static class SqlCatalog
             "SELECT name FROM sys.databases WHERE database_id > 4 AND state = 0 AND HAS_DBACCESS(name) = 1 ORDER BY name",
         DbEngine.PostgreSql =>
             "SELECT datname FROM pg_database WHERE datistemplate = false AND datallowconn = true ORDER BY datname",
+        // Oracle: a "database" is a schema (owner) that holds tables, without the ones Oracle maintains itself.
+        DbEngine.Oracle =>
+            "SELECT u.username FROM all_users u WHERE u.oracle_maintained = 'N' " +
+            "AND EXISTS (SELECT 1 FROM all_tables t WHERE t.owner = u.username) ORDER BY u.username",
+        DbEngine.Sqlite => "SELECT 'main'",
         _ =>
             "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA " +
             "WHERE SCHEMA_NAME NOT IN ('information_schema','mysql','performance_schema','sys') ORDER BY SCHEMA_NAME"
@@ -71,6 +87,20 @@ public static class SqlCatalog
               AND n.nspname NOT LIKE 'pg\_toast%' AND n.nspname NOT LIKE 'pg\_temp%'
               AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e')
             ORDER BY n.nspname, c.relname
+            """,
+        DbEngine.Oracle => $"""
+            SELECT NULL, t.table_name, t.num_rows
+            FROM all_tables t
+            WHERE t.owner = {OracleSchema} AND t.dropped = 'NO' AND t.nested = 'NO' AND t.secondary = 'N'
+              AND NOT EXISTS (SELECT 1 FROM all_mviews mv WHERE mv.owner = t.owner AND mv.mview_name = t.table_name)
+            ORDER BY t.table_name
+            """,
+        // Row counts are filled in separately (SQLite keeps no statistics by default).
+        DbEngine.Sqlite => $"""
+            SELECT NULL, m.name, NULL
+            FROM sqlite_master m
+            WHERE {SqliteTables}
+            ORDER BY m.name
             """,
         _ => """
             SELECT NULL, TABLE_NAME, TABLE_ROWS
@@ -135,6 +165,48 @@ public static class SqlCatalog
               AND n.nspname NOT LIKE 'pg\_toast%' AND n.nspname NOT LIKE 'pg\_temp%'
             ORDER BY n.nspname, c.relname, a.attnum
             """,
+        DbEngine.Oracle => $"""
+            SELECT NULL, c.table_name, c.column_name, c.data_type,
+                   CASE
+                     WHEN c.data_type IN ('VARCHAR2', 'NVARCHAR2', 'CHAR', 'NCHAR')
+                       THEN c.data_type || '(' || c.char_length || CASE WHEN c.char_used = 'C' AND c.data_type IN ('VARCHAR2', 'CHAR') THEN ' CHAR' END || ')'
+                     WHEN c.data_type = 'RAW' THEN 'RAW(' || c.data_length || ')'
+                     WHEN c.data_type = 'NUMBER' AND c.data_precision IS NOT NULL
+                       THEN 'NUMBER(' || c.data_precision || ',' || c.data_scale || ')'
+                     WHEN c.data_type = 'NUMBER' AND c.data_scale = 0 THEN 'INTEGER'
+                     WHEN c.data_type = 'FLOAT' THEN 'FLOAT(' || c.data_precision || ')'
+                     ELSE c.data_type
+                   END,
+                   CASE
+                     WHEN c.data_type IN ('VARCHAR2', 'NVARCHAR2', 'CHAR', 'NCHAR') THEN c.char_length
+                     WHEN c.data_type = 'RAW' THEN c.data_length
+                     WHEN c.data_type IN ('CLOB', 'NCLOB', 'BLOB', 'LONG', 'LONG RAW', 'XMLTYPE') THEN -1
+                   END,
+                   CASE WHEN c.nullable = 'Y' THEN 1 ELSE 0 END,
+                   CASE WHEN c.identity_column = 'YES' THEN 1 ELSE 0 END,
+                   c.data_default
+            FROM all_tab_columns c
+            JOIN all_tables t ON t.owner = c.owner AND t.table_name = c.table_name
+            WHERE c.owner = {OracleSchema} AND t.dropped = 'NO'
+            ORDER BY c.table_name, c.column_id
+            """,
+        // The rowid alias (INTEGER PRIMARY KEY on its own) is SQLite's identity column and can never be NULL.
+        DbEngine.Sqlite => $"""
+            SELECT NULL, m.name, p.name,
+                   lower(trim(CASE WHEN instr(p.type, '(') > 0 THEN substr(p.type, 1, instr(p.type, '(') - 1) ELSE p.type END)),
+                   lower(p.type),
+                   CASE WHEN instr(p.type, '(') > 0 AND (upper(p.type) LIKE '%CHAR%' OR upper(p.type) LIKE '%TEXT%' OR upper(p.type) LIKE '%CLOB%')
+                        THEN CAST(substr(p.type, instr(p.type, '(') + 1) AS INTEGER) END,
+                   CASE WHEN p."notnull" = 0 AND NOT (p.pk = 1 AND upper(p.type) = 'INTEGER'
+                        AND (SELECT COUNT(*) FROM pragma_table_info(m.name) k WHERE k.pk > 0) = 1) THEN 1 ELSE 0 END,
+                   CASE WHEN p.pk = 1 AND upper(p.type) = 'INTEGER'
+                        AND (SELECT COUNT(*) FROM pragma_table_info(m.name) k WHERE k.pk > 0) = 1 THEN 1 ELSE 0 END,
+                   p.dflt_value
+            FROM sqlite_master m
+            JOIN pragma_table_info(m.name) p
+            WHERE {SqliteTables}
+            ORDER BY m.name, p.cid
+            """,
         _ => """
             SELECT NULL, c.TABLE_NAME, c.COLUMN_NAME, c.DATA_TYPE, c.COLUMN_TYPE, c.CHARACTER_MAXIMUM_LENGTH,
                    (c.IS_NULLABLE = 'YES'), (c.EXTRA LIKE '%auto_increment%'), c.COLUMN_DEFAULT
@@ -180,6 +252,39 @@ public static class SqlCatalog
               AND n.nspname NOT IN ('pg_catalog', 'information_schema')
               AND n.nspname NOT LIKE 'pg\_toast%' AND n.nspname NOT LIKE 'pg\_temp%'
             ORDER BY n.nspname, t.relname, i.relname, k.ord
+            """,
+        DbEngine.Oracle => $"""
+            SELECT NULL, i.table_name, i.index_name, i.index_type,
+                   CASE WHEN i.uniqueness = 'UNIQUE' THEN 1 ELSE 0 END,
+                   CASE WHEN EXISTS (SELECT 1 FROM all_constraints k
+                                     WHERE k.owner = i.table_owner AND k.table_name = i.table_name AND k.constraint_type = 'P'
+                                       AND k.index_owner = i.owner AND k.index_name = i.index_name) THEN 1 ELSE 0 END,
+                   CASE WHEN ic.column_name LIKE 'SYS\_NC%$' ESCAPE '\' THEN '(expression)' ELSE ic.column_name END,
+                   0, ic.column_position, NULL
+            FROM all_indexes i
+            JOIN all_ind_columns ic ON ic.index_owner = i.owner AND ic.index_name = i.index_name
+            WHERE i.table_owner = {OracleSchema} AND i.index_type <> 'LOB' AND i.table_name NOT LIKE 'BIN$%'
+            ORDER BY i.table_name, i.index_name, ic.column_position
+            """,
+        // A rowid-alias primary key has no index of its own; it is reported as a pseudo index so keys are detected.
+        DbEngine.Sqlite => $"""
+            SELECT NULL, m.name, il.name,
+                   CASE il.origin WHEN 'pk' THEN 'PRIMARY KEY' WHEN 'u' THEN 'UNIQUE CONSTRAINT' ELSE 'BTREE' END,
+                   il."unique", CASE WHEN il.origin = 'pk' THEN 1 ELSE 0 END,
+                   COALESCE(ii.name, '(expression)'), 0, ii.seqno,
+                   CASE WHEN il.partial = 1 THEN (SELECT trim(substr(x.sql, instr(upper(x.sql), ' WHERE ') + 7))
+                                                  FROM sqlite_master x WHERE x.type = 'index' AND x.name = il.name) END
+            FROM sqlite_master m
+            JOIN pragma_index_list(m.name) il
+            JOIN pragma_index_info(il.name) ii
+            WHERE {SqliteTables}
+            UNION ALL
+            SELECT NULL, m.name, 'PRIMARY KEY', 'ROWID', 1, 1, p.name, 0, p.pk - 1, NULL
+            FROM sqlite_master m
+            JOIN pragma_table_info(m.name) p
+            WHERE {SqliteTables} AND p.pk > 0
+              AND NOT EXISTS (SELECT 1 FROM pragma_index_list(m.name) x WHERE x.origin = 'pk')
+            ORDER BY 2, 3, 9
             """,
         _ => """
             SELECT NULL, TABLE_NAME, INDEX_NAME, INDEX_TYPE, (NON_UNIQUE = 0), (INDEX_NAME = 'PRIMARY'),
@@ -229,6 +334,27 @@ public static class SqlCatalog
             WHERE c.contype = 'f' AND n1.nspname NOT IN ('pg_catalog', 'information_schema')
             ORDER BY n1.nspname, c.conname, k.ord
             """,
+        DbEngine.Oracle => $"""
+            SELECT c.constraint_name, NULL, c.table_name, cc.column_name,
+                   CASE WHEN r.owner = c.owner THEN NULL ELSE r.owner END, r.table_name, rc.column_name,
+                   c.delete_rule, 'NO ACTION', cc.position
+            FROM all_constraints c
+            JOIN all_cons_columns cc ON cc.owner = c.owner AND cc.constraint_name = c.constraint_name
+            JOIN all_constraints r ON r.owner = c.r_owner AND r.constraint_name = c.r_constraint_name
+            JOIN all_cons_columns rc ON rc.owner = r.owner AND rc.constraint_name = r.constraint_name AND rc.position = cc.position
+            WHERE c.constraint_type = 'R' AND c.owner = {OracleSchema} AND c.table_name NOT LIKE 'BIN$%'
+            ORDER BY c.table_name, c.constraint_name, cc.position
+            """,
+        // A reference without a column list points at the parent's primary key.
+        DbEngine.Sqlite => $"""
+            SELECT 'fk_' || m.name || '_' || fk.id, NULL, m.name, fk."from", NULL, fk."table",
+                   COALESCE(fk."to", (SELECT p.name FROM pragma_table_info(fk."table") p WHERE p.pk = fk.seq + 1)),
+                   fk.on_delete, fk.on_update, fk.seq
+            FROM sqlite_master m
+            JOIN pragma_foreign_key_list(m.name) fk
+            WHERE {SqliteTables}
+            ORDER BY m.name, fk.id, fk.seq
+            """,
         _ => """
             SELECT k.CONSTRAINT_NAME, NULL, k.TABLE_NAME, k.COLUMN_NAME, NULL, k.REFERENCED_TABLE_NAME,
                    k.REFERENCED_COLUMN_NAME, rc.DELETE_RULE, rc.UPDATE_RULE, k.ORDINAL_POSITION
@@ -274,6 +400,26 @@ public static class SqlCatalog
             WHERE NOT t.tgisinternal AND n.nspname NOT IN ('pg_catalog', 'information_schema')
             ORDER BY n.nspname, c.relname, t.tgname
             """,
+        // trigger_body is a LONG column: it cannot be shortened in SQL, the reader truncates it.
+        DbEngine.Oracle => $"""
+            SELECT t.trigger_name, NULL, t.table_name, t.triggering_event, t.trigger_type,
+                   CASE WHEN t.status = 'DISABLED' THEN 1 ELSE 0 END,
+                   {(definitions ? "t.trigger_body" : "NULL")}
+            FROM all_triggers t
+            WHERE t.table_owner = {OracleSchema} AND t.base_object_type = 'TABLE' AND t.table_name NOT LIKE 'BIN$%'
+            ORDER BY t.table_name, t.trigger_name
+            """,
+        DbEngine.Sqlite => $"""
+            SELECT m.name, NULL, m.tbl_name,
+                   CASE WHEN instr(h.head, ' INSERT') > 0 THEN 'INSERT' WHEN instr(h.head, ' DELETE') > 0 THEN 'DELETE' ELSE 'UPDATE' END,
+                   CASE WHEN instr(h.head, ' INSTEAD OF') > 0 THEN 'INSTEAD OF' WHEN instr(h.head, ' BEFORE') > 0 THEN 'BEFORE' ELSE 'AFTER' END,
+                   0,
+                   {(definitions ? $"substr(m.sql, 1, {maxDefinition})" : "NULL")}
+            FROM sqlite_master m
+            JOIN (SELECT name AS n, upper(substr(sql, 1, instr(upper(sql), ' ON '))) AS head FROM sqlite_master WHERE type = 'trigger') h ON h.n = m.name
+            WHERE m.type = 'trigger'
+            ORDER BY m.tbl_name, m.name
+            """,
         _ => $"""
             SELECT TRIGGER_NAME, NULL, EVENT_OBJECT_TABLE, EVENT_MANIPULATION, ACTION_TIMING, 0,
                    {(definitions ? $"LEFT(ACTION_STATEMENT, {maxDefinition})" : "NULL")}
@@ -304,6 +450,18 @@ public static class SqlCatalog
             FROM pg_matviews
             WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
             ORDER BY 1, 2
+            """,
+        DbEngine.Oracle => $"""
+            SELECT NULL, v.view_name, {(definitions ? $"SUBSTR(v.text_vc, 1, {Math.Min(maxDefinition, 4000)})" : "NULL")}
+            FROM all_views v
+            WHERE v.owner = {OracleSchema}
+            ORDER BY v.view_name
+            """,
+        DbEngine.Sqlite => $"""
+            SELECT NULL, m.name, {(definitions ? $"substr(m.sql, 1, {maxDefinition})" : "NULL")}
+            FROM sqlite_master m
+            WHERE m.type = 'view'
+            ORDER BY m.name
             """,
         _ => $"""
             SELECT NULL, TABLE_NAME, {(definitions ? $"LEFT(VIEW_DEFINITION, {maxDefinition})" : "NULL")}
@@ -345,6 +503,20 @@ public static class SqlCatalog
               AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')
             ORDER BY n.nspname, p.proname
             """,
+        // Package bodies hold the actual PL/SQL code; source lines are concatenated up to the VARCHAR2 limit.
+        DbEngine.Oracle => $"""
+            SELECT NULL, o.object_name, o.object_type,
+                   (SELECT LISTAGG(a.argument_name || ' ' || a.in_out || ' ' || a.data_type, ', ' ON OVERFLOW TRUNCATE '…' WITHOUT COUNT)
+                           WITHIN GROUP (ORDER BY a.position)
+                    FROM all_arguments a
+                    WHERE a.owner = o.owner AND a.object_name = o.object_name AND a.package_name IS NULL
+                      AND a.argument_name IS NOT NULL AND a.data_level = 0),
+                   {(definitions ? OracleSource : "NULL")}
+            FROM all_objects o
+            WHERE o.owner = {OracleSchema} AND o.object_type IN ('PROCEDURE', 'FUNCTION', 'PACKAGE BODY')
+            ORDER BY o.object_type, o.object_name
+            """,
+        DbEngine.Sqlite => "SELECT NULL, NULL, NULL, NULL, NULL WHERE 0",
         _ => $"""
             SELECT NULL, r.ROUTINE_NAME, r.ROUTINE_TYPE,
                    (SELECT GROUP_CONCAT(CONCAT_WS(' ', p.PARAMETER_MODE, p.PARAMETER_NAME, p.DATA_TYPE)
@@ -379,6 +551,16 @@ public static class SqlCatalog
             WHERE con.contype = 'c' AND n.nspname NOT IN ('pg_catalog', 'information_schema')
             ORDER BY n.nspname, c.relname, con.conname
             """,
+        // NOT NULL is stored as a generated CHECK constraint in Oracle; those are already part of the column list.
+        DbEngine.Oracle => $"""
+            SELECT NULL, c.table_name, c.constraint_name, 'CHECK', c.search_condition_vc
+            FROM all_constraints c
+            WHERE c.owner = {OracleSchema} AND c.constraint_type = 'C' AND c.table_name NOT LIKE 'BIN$%'
+              AND NOT (c.generated = 'GENERATED NAME' AND c.search_condition_vc LIKE '"%" IS NOT NULL')
+            ORDER BY c.table_name, c.constraint_name
+            """,
+        // SQLite keeps CHECK constraints only inside CREATE TABLE; they are parsed from the table SQL instead.
+        DbEngine.Sqlite => "SELECT NULL, NULL, NULL, NULL, NULL WHERE 0",
         _ => """
             SELECT NULL, tc.TABLE_NAME, tc.CONSTRAINT_NAME, 'CHECK', cc.CHECK_CLAUSE
             FROM information_schema.TABLE_CONSTRAINTS tc
@@ -402,8 +584,58 @@ public static class SqlCatalog
         return engine switch
         {
             DbEngine.SqlServer => $"SELECT TOP ({rows}) {cols} FROM {from}" + (random ? " ORDER BY NEWID()" : ""),
-            DbEngine.PostgreSql => $"SELECT {cols} FROM {from}" + (random ? " ORDER BY random()" : "") + $" LIMIT {rows}",
+            DbEngine.PostgreSql or DbEngine.Sqlite => $"SELECT {cols} FROM {from}" + (random ? " ORDER BY random()" : "") + $" LIMIT {rows}",
+            DbEngine.Oracle => $"SELECT {cols} FROM {from}" + (random ? " ORDER BY DBMS_RANDOM.VALUE" : "") + $" FETCH FIRST {rows} ROWS ONLY",
             _ => $"SELECT {cols} FROM {from}" + (random ? " ORDER BY RAND()" : "") + $" LIMIT {rows}"
         };
+    }
+
+    // ---------------------------------------------------------------- SQLite CHECK constraints
+
+    /// <summary>Extracts the CHECK constraints from a SQLite CREATE TABLE statement (name, expression).</summary>
+    public static IReadOnlyList<(string Name, string Expression)> ParseSqliteChecks(string createSql)
+    {
+        var result = new List<(string, string)>();
+        int i = 0;
+        while (i < createSql.Length)
+        {
+            int at = IndexOfKeyword(createSql, "CHECK", i);
+            if (at < 0) break;
+
+            int open = createSql.IndexOf('(', at + 5);
+            if (open < 0 || createSql[(at + 5)..open].Trim().Length > 0) { i = at + 5; continue; }
+
+            int depth = 0, end = -1;
+            char quote = '\0';
+            for (int j = open; j < createSql.Length; j++)
+            {
+                char c = createSql[j];
+                if (quote != '\0') { if (c == quote) quote = '\0'; continue; }
+                if (c is '\'' or '"' or '`') { quote = c; continue; }
+                if (c == '(') depth++;
+                else if (c == ')' && --depth == 0) { end = j; break; }
+            }
+            if (end < 0) break;
+
+            // "CONSTRAINT name CHECK (…)" gives the constraint a name.
+            string before = createSql[..at].TrimEnd();
+            var named = System.Text.RegularExpressions.Regex.Match(before, @"CONSTRAINT\s+[""`\[]?([^\s""`\]]+)[""`\]]?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            string name = named.Success ? named.Groups[1].Value : $"check_{result.Count + 1}";
+            result.Add((name, createSql[(open + 1)..end].Trim()));
+            i = end + 1;
+        }
+        return result;
+    }
+
+    private static int IndexOfKeyword(string sql, string keyword, int start)
+    {
+        for (int i = sql.IndexOf(keyword, start, StringComparison.OrdinalIgnoreCase); i >= 0; i = sql.IndexOf(keyword, i + 1, StringComparison.OrdinalIgnoreCase))
+        {
+            bool left = i == 0 || !char.IsLetterOrDigit(sql[i - 1]) && sql[i - 1] != '_';
+            int after = i + keyword.Length;
+            bool right = after >= sql.Length || !char.IsLetterOrDigit(sql[after]) && sql[after] != '_';
+            if (left && right) return i;
+        }
+        return -1;
     }
 }

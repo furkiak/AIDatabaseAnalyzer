@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AIDatabaseAnalyzer.Models;
 using AIDatabaseAnalyzer.Services.Database;
 using AIDatabaseAnalyzer.Services.Insights;
@@ -5,7 +6,8 @@ using AIDatabaseAnalyzer.Services.Insights;
 namespace AIDatabaseAnalyzer.Services.Llm;
 
 /// <summary>What happened to one topic; reported to the UI while a run is in progress.</summary>
-public sealed record AnalysisProgress(AnalysisTopic? Topic, AnalysisStatus Status, int Completed, int Total, string Message, string? Error = null);
+public sealed record AnalysisProgress(
+    AnalysisTopic? Topic, AnalysisStatus Status, int Completed, int Total, string Message, string? Error = null, LlmUsage Usage = default);
 
 public sealed class AnalysisRequest
 {
@@ -19,7 +21,7 @@ public sealed class AnalysisRequest
 public interface IAnalysisRunner
 {
     /// <summary>
-    /// Runs every topic one after another, then writes the executive summary and the action plan.
+    /// Answers every topic (several at a time for cloud providers), then writes the executive summary and the action plan.
     /// Sections of <paramref name="previous"/> that already succeeded are reused, so the same call also retries failed topics.
     /// </summary>
     Task<AnalysisReport> RunAsync(
@@ -34,6 +36,7 @@ public sealed class AnalysisRunner : IAnalysisRunner
 {
     public const string SummaryTitle = "Executive Summary";
     public const string ActionPlanTitle = "Prioritized Action Plan";
+    private const string SummaryCategory = "Summary";
 
     private readonly ILlmService _llm;
 
@@ -46,9 +49,8 @@ public sealed class AnalysisRunner : IAnalysisRunner
         IProgress<AnalysisProgress>? progress,
         CancellationToken ct)
     {
-        var topics = request.Topics;
-        int total = topics.Count + 2;
-        int completed = 0;
+        var clock = Stopwatch.StartNew();
+        var run = new RunState(request.Topics.Count + 2, progress);
 
         var report = new AnalysisReport
         {
@@ -65,103 +67,178 @@ public sealed class AnalysisRunner : IAnalysisRunner
 
         var reusable = (previous?.Sections ?? new List<ReportSection>())
             .Where(s => !s.IsError)
-            .ToDictionary(s => s.Title, StringComparer.Ordinal);
+            .GroupBy(s => s.Title, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
-        string context = PromptBuilder.SchemaContext(request.Schema, request.SchemaJson);
-        var topicSections = new List<ReportSection>();
-        bool cancelled = false;
+        string system = PromptBuilder.SystemPrompt(request.Schema, request.SchemaJson, request.Insights, request.Language);
+        var topics = request.Topics;
+        var results = new ReportSection?[topics.Count];
+        var pending = new List<int>();
 
-        foreach (var topic in topics)
+        for (int i = 0; i < topics.Count; i++)
         {
-            if (cancelled || ct.IsCancellationRequested)
+            if (reusable.TryGetValue(topics[i].Title, out var existing))
             {
-                cancelled = true;
-                progress?.Report(new AnalysisProgress(topic, AnalysisStatus.Cancelled, completed, total, "Cancelled"));
-                continue;
+                results[i] = existing;
+                run.Done(topics[i], AnalysisStatus.Completed, $"Reused: {topics[i].Title}");
+            }
+            else
+            {
+                pending.Add(i);
+            }
+        }
+
+        async Task AnswerAsync(int index)
+        {
+            var topic = topics[index];
+            if (ct.IsCancellationRequested)
+            {
+                run.Cancelled(topic);
+                return;
             }
 
-            if (reusable.TryGetValue(topic.Title, out var existing))
-            {
-                topicSections.Add(existing);
-                completed++;
-                progress?.Report(new AnalysisProgress(topic, AnalysisStatus.Completed, completed, total, $"Reused: {topic.Title}"));
-                continue;
-            }
-
-            progress?.Report(new AnalysisProgress(topic, AnalysisStatus.Processing, completed, total, topic.Title));
+            run.Report(topic, AnalysisStatus.Processing, topic.Title);
             try
             {
-                string answer = await _llm.GenerateAsync(settings, PromptBuilder.TopicPrompt(context, topic, request.Language), ct).ConfigureAwait(false);
-                topicSections.Add(new ReportSection { Title = topic.Title, Category = topic.Category, Content = answer.Trim() });
-                completed++;
-                progress?.Report(new AnalysisProgress(topic, AnalysisStatus.Completed, completed, total, topic.Title));
+                var answer = await CompleteWithRetryAsync(settings, LlmRequest.Single(system, PromptBuilder.TopicTask(topic)), ct).ConfigureAwait(false);
+                run.Add(answer.Usage);
+                results[index] = new ReportSection { Title = topic.Title, Category = topic.Category, Content = answer.Text };
+                run.Done(topic, AnalysisStatus.Completed, topic.Title);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                cancelled = true;
-                progress?.Report(new AnalysisProgress(topic, AnalysisStatus.Cancelled, completed, total, "Cancelled"));
+                run.Cancelled(topic);
             }
             catch (Exception ex)
             {
-                topicSections.Add(new ReportSection { Title = topic.Title, Category = topic.Category, IsError = true, Content = "**This topic could not be analysed.**\n\n" + ex.Message });
-                completed++;
-                progress?.Report(new AnalysisProgress(topic, AnalysisStatus.Error, completed, total, topic.Title, ex.Message));
+                results[index] = new ReportSection { Title = topic.Title, Category = topic.Category, IsError = true, Content = "**This topic could not be analysed.**\n\n" + ex.Message };
+                run.Done(topic, AnalysisStatus.Error, topic.Title, ex.Message);
             }
         }
+
+        if (pending.Count > 0)
+        {
+            // The first request writes the provider's prompt cache; the others then read the schema from it.
+            await AnswerAsync(pending[0]).ConfigureAwait(false);
+            await ForEachAsync(pending.Skip(1), settings.Parallelism, AnswerAsync, ct).ConfigureAwait(false);
+        }
+
+        bool cancelled = ct.IsCancellationRequested;
+        var topicSections = results.Where(s => s is not null).Select(s => s!).ToList();
 
         // Executive summary and action plan are only worth writing when there is something to summarise.
         var sections = new List<ReportSection>();
         if (!cancelled && topicSections.Any(s => !s.IsError))
         {
-            int budget = settings.IsLocal ? Math.Min(24_000, (int)(settings.ContextTokens * 3.5 * 0.45)) : 40_000;
+            int budget = settings.IsLocal ? Math.Min(24_000, (int)(settings.ContextTokens * 3.5 * 0.45)) : 60_000;
             string digest = PromptBuilder.BuildDigest(topicSections, budget);
-            string header = PromptBuilder.SchemaHeader(request.Schema);
 
-            sections.Add(await TryGenerateAsync(SummaryTitle, "Summary", PromptBuilder.SummaryPrompt(header, digest, request.Insights, request.Language),
-                previous, settings, ct, progress, () => completed, () => ++completed, total));
-            sections.Add(await TryGenerateAsync(ActionPlanTitle, "Summary", PromptBuilder.ActionPlanPrompt(header, digest, request.Insights, request.Language),
-                previous, settings, ct, progress, () => completed, () => ++completed, total));
+            // Re-use the cached schema prompt when it comfortably fits; local models get a compact one.
+            int fullTokens = (int)((system.Length + digest.Length) / 3.5) + 6_000;
+            string summarySystem = !settings.IsLocal && fullTokens < settings.ContextTokens
+                ? system
+                : PromptBuilder.CompactSystemPrompt(request.Schema, request.Insights, request.Language);
+
+            var finals = new ReportSection?[2];
+            var jobs = new (string Title, string Task)[]
+            {
+                (SummaryTitle, PromptBuilder.SummaryTask(digest)),
+                (ActionPlanTitle, PromptBuilder.ActionPlanTask(digest))
+            };
+
+            await ForEachAsync(Enumerable.Range(0, jobs.Length), Math.Min(2, settings.Parallelism), async i =>
+            {
+                finals[i] = await SummariseAsync(jobs[i].Title, LlmRequest.Single(summarySystem, jobs[i].Task), previous, settings, run, ct).ConfigureAwait(false);
+            }, ct).ConfigureAwait(false);
+
+            cancelled = ct.IsCancellationRequested;
+            sections.AddRange(finals.Where(s => s is not null).Select(s => s!));
         }
 
         sections.AddRange(topicSections);
         for (int i = 0; i < sections.Count; i++)
-            sections[i].Title = sections[i].Category == "Summary" ? $"{i + 1}. {sections[i].Title}" : sections[i].Title;
+            if (sections[i].Category == SummaryCategory) sections[i].Title = $"{i + 1}. {StripNumber(sections[i].Title)}";
 
         report.Sections = sections;
-        progress?.Report(new AnalysisProgress(null, cancelled ? AnalysisStatus.Cancelled : AnalysisStatus.Completed, total, total,
-            cancelled ? "Cancelled" : "Analysis complete"));
+        report.InputTokens = run.Usage.InputTokens;
+        report.OutputTokens = run.Usage.OutputTokens;
+        report.CachedInputTokens = run.Usage.CachedInputTokens;
+        report.DurationSeconds = Math.Round(clock.Elapsed.TotalSeconds, 1);
+
+        progress?.Report(new AnalysisProgress(null, cancelled ? AnalysisStatus.Cancelled : AnalysisStatus.Completed, run.Total, run.Total,
+            cancelled ? "Cancelled" : "Analysis complete", Usage: run.Usage));
         return report;
     }
 
-    private async Task<ReportSection> TryGenerateAsync(
-        string title, string category, string prompt, AnalysisReport? previous, LlmSettings settings,
-        CancellationToken ct, IProgress<AnalysisProgress>? progress, Func<int> current, Func<int> advance, int total)
+    private async Task<ReportSection?> SummariseAsync(
+        string title, LlmRequest request, AnalysisReport? previous, LlmSettings settings, RunState run, CancellationToken ct)
     {
         // Titles carry a "1. " prefix in saved reports, compare without it.
-        var existing = previous?.Sections.FirstOrDefault(s => !s.IsError && s.Category == category && StripNumber(s.Title) == title);
+        var existing = previous?.Sections.FirstOrDefault(s => !s.IsError && s.Category == SummaryCategory && StripNumber(s.Title) == title);
         if (existing is not null)
         {
-            existing.Title = title;
-            advance();
-            return existing;
+            run.Done(null, AnalysisStatus.Completed, title);
+            return new ReportSection { Title = title, Category = SummaryCategory, Content = existing.Content };
         }
 
-        progress?.Report(new AnalysisProgress(null, AnalysisStatus.Processing, current(), total, title));
+        if (ct.IsCancellationRequested) return null;
+        run.Report(null, AnalysisStatus.Processing, title);
         try
         {
-            string answer = await _llm.GenerateAsync(settings, prompt, ct).ConfigureAwait(false);
-            advance();
-            return new ReportSection { Title = title, Category = category, Content = answer.Trim() };
+            var answer = await CompleteWithRetryAsync(settings, request, ct).ConfigureAwait(false);
+            run.Add(answer.Usage);
+            run.Done(null, AnalysisStatus.Completed, title);
+            return new ReportSection { Title = title, Category = SummaryCategory, Content = answer.Text };
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            throw;
+            return null;
         }
         catch (Exception ex)
         {
-            advance();
-            return new ReportSection { Title = title, Category = category, IsError = true, Content = "**This section could not be generated.**\n\n" + ex.Message };
+            run.Done(null, AnalysisStatus.Error, title, ex.Message);
+            return new ReportSection { Title = title, Category = SummaryCategory, IsError = true, Content = "**This section could not be generated.**\n\n" + ex.Message };
         }
+    }
+
+    /// <summary>One more attempt for answers that were empty, cut off by a time-out or rejected by an overloaded service.</summary>
+    private async Task<LlmResult> CompleteWithRetryAsync(LlmSettings settings, LlmRequest request, CancellationToken ct)
+    {
+        try
+        {
+            return await _llm.CompleteAsync(settings, request, ct).ConfigureAwait(false);
+        }
+        catch (LlmException ex) when (ex.IsTransient && !ct.IsCancellationRequested)
+        {
+            return await _llm.CompleteAsync(settings, request, ct).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task ForEachAsync<T>(IEnumerable<T> items, int parallelism, Func<T, Task> body, CancellationToken ct)
+    {
+        using var gate = new SemaphoreSlim(Math.Max(1, parallelism));
+        var tasks = items.Select(async item =>
+        {
+            try
+            {
+                await gate.WaitAsync(ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                await body(item).ConfigureAwait(false); // reports the item as cancelled
+                return;
+            }
+
+            try
+            {
+                await body(item).ConfigureAwait(false);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }).ToList();
+        await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
     private static string StripNumber(string title)
@@ -184,4 +261,51 @@ public sealed class AnalysisRunner : IAnalysisRunner
                     Recommendation = f.Recommendation,
                     Objects = f.Objects.ToList()
                 }).ToList();
+
+    /// <summary>Thread-safe progress counter and usage total for one run.</summary>
+    private sealed class RunState
+    {
+        private readonly object _lock = new();
+        private readonly IProgress<AnalysisProgress>? _progress;
+        private int _completed;
+        private LlmUsage _usage;
+
+        public RunState(int total, IProgress<AnalysisProgress>? progress)
+        {
+            Total = total;
+            _progress = progress;
+        }
+
+        public int Total { get; }
+
+        public LlmUsage Usage
+        {
+            get { lock (_lock) return _usage; }
+        }
+
+        public void Add(LlmUsage usage)
+        {
+            lock (_lock) _usage += usage;
+        }
+
+        public void Report(AnalysisTopic? topic, AnalysisStatus status, string message, string? error = null)
+        {
+            int completed;
+            LlmUsage usage;
+            lock (_lock)
+            {
+                completed = _completed;
+                usage = _usage;
+            }
+            _progress?.Report(new AnalysisProgress(topic, status, completed, Total, message, error, usage));
+        }
+
+        public void Done(AnalysisTopic? topic, AnalysisStatus status, string message, string? error = null)
+        {
+            lock (_lock) _completed++;
+            Report(topic, status, message, error);
+        }
+
+        public void Cancelled(AnalysisTopic topic) => Report(topic, AnalysisStatus.Cancelled, "Cancelled");
+    }
 }

@@ -43,6 +43,38 @@
                         <Label Grid.Column="1" Text="{Binding SelectionText}" StyleClass="Accent" VerticalOptions="Center" />
                     </Grid>
 
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Start from a preset" StyleClass="Overline" />
+                        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding PresetChips}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FilterChip">
+                                    <Border StyleClass="Tile" Padding="12,7" Margin="0,0,8,6">
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource AccentGradient}" />
+                                                <Setter Property="Stroke" Value="{StaticResource Transparent}" />
+                                            </DataTrigger>
+                                        </Border.Triggers>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding SelectCommand}" />
+                                        </Border.GestureRecognizers>
+                                        <Label Text="{Binding Text}" FontSize="13">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="TextColor" Value="White" />
+                                                    <Setter Property="FontAttributes" Value="Bold" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </FlexLayout>
+                        <Label Text="{Binding PresetDescription}" StyleClass="Caption" />
+                    </VerticalStackLayout>
+
+                    <Label Text="Categories" StyleClass="Overline" />
+
                     <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding CategoryChips}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="vm:FilterChip">
@@ -100,7 +132,10 @@
                                             <Label Text="✓" FontSize="12" FontAttributes="Bold" TextColor="White"
                                                    HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsSelected}" />
                                         </Border>
-                                        <Label Grid.Column="1" Text="{Binding Title}" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                                            <Label Text="{Binding Title}" LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding Limitation}" StyleClass="Warning" FontSize="11.5" IsVisible="{Binding HasLimitation}" />
+                                        </VerticalStackLayout>
                                         <Label Grid.Column="2" Text="{Binding Category}" StyleClass="Caption" VerticalOptions="Center" />
                                         <Button Grid.Column="3" Text="✕" StyleClass="Danger,Small" WidthRequest="34" Padding="0" Command="{Binding RemoveCommand}" IsVisible="{Binding IsCustom}" />
                                     </Grid>
@@ -134,6 +169,7 @@
                     </Grid>
 
                     <ProgressBar Progress="{Binding Progress}" HeightRequest="8" />
+                    <Label Text="{Binding UsageText}" StyleClass="Caption" />
 
                     <Border StyleClass="BannerSuccess" IsVisible="{Binding HasResult}">
                         <Label Text="{Binding ResultText}" StyleClass="Success" FontSize="13.5" />

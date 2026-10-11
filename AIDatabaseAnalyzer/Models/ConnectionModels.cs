@@ -9,6 +9,9 @@ public sealed class ConnectionSettings
     public string Username { get; set; } = "";
     public string Password { get; set; } = "";
 
+    /// <summary>Oracle only: the service name of the pluggable database (for example FREEPDB1 or ORCLPDB1).</summary>
+    public string ServiceName { get; set; } = "";
+
     /// <summary>SQL Server only: use Windows (integrated) authentication.</summary>
     public bool UseIntegratedSecurity { get; set; }
 
@@ -27,10 +30,13 @@ public sealed class SavedConnection
     public string Server { get; set; } = "";
     public int? Port { get; set; }
     public string Username { get; set; } = "";
+    public string ServiceName { get; set; } = "";
     public bool UseIntegratedSecurity { get; set; }
     public bool TrustServerCertificate { get; set; } = true;
     public bool HasSavedPassword { get; set; }
 
     [System.Text.Json.Serialization.JsonIgnore]
-    public string Summary => $"{((DbEngine)Engine).DisplayName()} · {Server}";
+    public string Summary => (DbEngine)Engine == DbEngine.Sqlite
+        ? $"SQLite · {Path.GetFileName(Server)}"
+        : $"{((DbEngine)Engine).DisplayName()} · {Server}";
 }
