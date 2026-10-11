@@ -135,8 +135,9 @@ jobs:
         run: |
           packs="$(dirname "$(readlink -f "$(command -v dotnet)")")/packs"
           want=$(for d in "$packs"/Microsoft.MacCatalyst.Sdk.net9.0_*; do if [ -d "$d" ]; then echo "${d##*_}"; fi; done | sort -V | tail -1)
-          pick() { for x in "$@"; do [ -d "$x" ] || continue; case "$x" in *[Bb]eta*|*Release_Candidate*) continue ;; esac; echo "$x"; done | sort -V | tail -1; }
-          echo "The Mac Catalyst SDK expects Xcode ${want:-?}; installed:"; printf '  %s\n' /Applications/Xcode*.app
+          # Xcode_26.5.0.app is a symlink to Xcode_26.5.app; xcodebuild only finds the SDK through the real path.
+          pick() { for x in "$@"; do [ -d "$x" ] || continue; case "$x" in *[Bb]eta*|*Release_Candidate*) continue ;; esac; readlink -f "$x"; done | sort -V -u | tail -1; }
+          echo "The Mac Catalyst SDK expects Xcode ${want:-?}; installed:"; ls -ld /Applications/Xcode*.app
           xcode=""
           if [ -n "$want" ]; then xcode=$(pick /Applications/Xcode_"$want".app /Applications/Xcode_"$want".[0-9]*.app); fi
           if [ -z "$xcode" ]; then
@@ -145,6 +146,7 @@ jobs:
           fi
           sudo xcode-select -s "$xcode"
           xcodebuild -version
+          xcrun --sdk macosx --show-sdk-path
 
       # Release builds contain both architectures. Ad-hoc signed: there is no Apple Developer ID.
       - name: Build
