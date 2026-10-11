@@ -46,6 +46,46 @@
                 </Grid>
             </Border>
 
+            <!-- ============================ Drift since the last snapshot ============================ -->
+            <Border StyleClass="BannerInfo" IsVisible="{Binding HasDrift}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                        <Label Text="The schema changed since the last snapshot" StyleClass="Headline" />
+                        <Label Text="{Binding DriftText}" StyleClass="Body" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" Text="View changes" StyleClass="Small" Command="{Binding OpenSnapshotsCommand}" VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
+            <!-- ============================ Hot spots ============================ -->
+            <Border StyleClass="Glass" IsVisible="{Binding HasHotSpots}">
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Hot spots" StyleClass="Title" />
+                            <Label Text="The tables with the most serious findings — open one in the ER diagram to see why." StyleClass="Caption" />
+                        </VerticalStackLayout>
+                        <Button Grid.Column="1" Text="Health map" StyleClass="Small" Command="{Binding VisualizeCommand}" VerticalOptions="Center" />
+                    </Grid>
+                    <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding HotSpots}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:HotSpotItem">
+                                <Border StyleClass="Tile" Padding="12,8" Margin="0,0,8,8">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding OpenCommand}" />
+                                    </Border.GestureRecognizers>
+                                    <HorizontalStackLayout Spacing="8">
+                                        <Ellipse Fill="{Binding Color}" WidthRequest="10" HeightRequest="10" VerticalOptions="Center" />
+                                        <Label Text="{Binding Table}" FontAttributes="Bold" FontSize="13" VerticalOptions="Center" />
+                                        <Label Text="{Binding CountText}" StyleClass="Caption" VerticalOptions="Center" />
+                                    </HorizontalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+                </VerticalStackLayout>
+            </Border>
+
             <Border StyleClass="BannerWarning" IsVisible="{Binding HasWarnings}">
                 <VerticalStackLayout Spacing="4">
                     <Label Text="Some metadata could not be read" StyleClass="Headline" />
@@ -121,6 +161,10 @@
                                                     <Label Text="{Binding ObjectsText}" StyleClass="Mono" />
                                                 </Border>
                                                 <Label Text="{Binding Recommendation}" StyleClass="Accent" FontAttributes="None" />
+                                                <HorizontalStackLayout Spacing="8">
+                                                    <Button Text="{Binding DiagramText}" StyleClass="Small" Command="{Binding ShowInDiagramCommand}" IsVisible="{Binding HasTables}" />
+                                                    <Button Text="Ask AI how to fix" StyleClass="Small" Command="{Binding AskCommand}" />
+                                                </HorizontalStackLayout>
                                             </VerticalStackLayout>
                                         </VerticalStackLayout>
                                     </Grid>
@@ -128,8 +172,22 @@
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
                     </VerticalStackLayout>
-                    <Label Text="Tip: click a finding to see the affected objects and the recommended fix." StyleClass="Caption" IsVisible="{Binding HasFindings}" />
+                    <Label Text="Tip: click a finding to see the affected objects, the recommended fix and the tables in the diagram." StyleClass="Caption" IsVisible="{Binding HasFindings}" />
                 </VerticalStackLayout>
+            </Border>
+
+            <!-- ============================ Fix script ============================ -->
+            <Border StyleClass="Glass">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                    <VerticalStackLayout Spacing="4" VerticalOptions="Center">
+                        <Label Text="Fix script" StyleClass="Title" />
+                        <Label Text="{Binding FixScriptText}" StyleClass="Body" />
+                    </VerticalStackLayout>
+                    <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                        <Button Text="Copy" StyleClass="Small" Command="{Binding CopyFixScriptCommand}" />
+                        <Button Text="Save .sql" StyleClass="Primary,Small" Command="{Binding SaveFixScriptCommand}" />
+                    </HorizontalStackLayout>
+                </Grid>
             </Border>
 
             <!-- ============================ Schema payload ============================ -->

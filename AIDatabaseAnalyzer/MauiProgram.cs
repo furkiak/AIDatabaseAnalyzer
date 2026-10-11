@@ -1,4 +1,5 @@
 using AIDatabaseAnalyzer.Services.Database;
+using AIDatabaseAnalyzer.Services.History;
 using AIDatabaseAnalyzer.Services.Infrastructure;
 using AIDatabaseAnalyzer.Services.Llm;
 using AIDatabaseAnalyzer.Services.Reporting;
@@ -22,6 +23,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<ILlmSettingsProvider>(sp => sp.GetRequiredService<ISettingsService>());
         builder.Services.AddSingleton<IConnectionProfileStore, ConnectionProfileStore>();
         builder.Services.AddSingleton<IReportStore, ReportStore>();
+        builder.Services.AddSingleton(_ => new SnapshotStore(Path.Combine(FileSystem.AppDataDirectory, "Snapshots")));
         builder.Services.AddSingleton<IFileExportService, FileExportService>();
         builder.Services.AddSingleton<IDialogService, DialogService>();
         builder.Services.AddSingleton<INoticeService, NoticeService>();
@@ -45,6 +47,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<ReportsViewModel>();
         builder.Services.AddSingleton<DiagramViewModel>();
         builder.Services.AddSingleton<SettingsViewModel>();
+        builder.Services.AddSingleton<ChatViewModel>();
+        builder.Services.AddSingleton<SnapshotsViewModel>();
 
         builder.Services.AddSingleton<MainPage>();
 

@@ -25,6 +25,17 @@ public sealed class DatabaseSchema
     /// <summary>False when the user excluded indexes; index based checks are then skipped.</summary>
     public bool IndexesIncluded { get; set; } = true;
 
+    /// <summary>Which optional sections were read; snapshots only compare what both sides contain.</summary>
+    public bool ViewsIncluded { get; set; } = true;
+    public bool TriggersIncluded { get; set; } = true;
+    public bool RoutinesIncluded { get; set; } = true;
+    public bool ConstraintsIncluded { get; set; } = true;
+    public bool DefinitionsIncluded { get; set; } = true;
+
+    /// <summary>Only some of the tables were selected for extraction.</summary>
+    public bool IsPartial { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
     public int ColumnCount => Tables.Sum(t => t.Columns.Count);
 
     public TableInfo? FindTable(string fullName) =>
@@ -41,6 +52,7 @@ public sealed class TableInfo
     /// <summary>Set by the reader so that default schemas (dbo, public) are omitted from names.</summary>
     public string? DefaultSchema { get; set; }
 
+    [System.Text.Json.Serialization.JsonIgnore]
     public string FullName => Qualify(Schema, Name, DefaultSchema);
 
     /// <summary>Builds the display name of an object; the engine's default schema (dbo, public) is omitted.</summary>
@@ -49,7 +61,10 @@ public sealed class TableInfo
             ? name
             : schema + "." + name;
 
+    [System.Text.Json.Serialization.JsonIgnore]
     public IEnumerable<ColumnInfo> PrimaryKeyColumns => Columns.Where(c => c.IsPrimaryKey);
+
+    [System.Text.Json.Serialization.JsonIgnore]
     public bool HasPrimaryKey => Columns.Any(c => c.IsPrimaryKey);
 }
 

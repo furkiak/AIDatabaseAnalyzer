@@ -2,8 +2,25 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using AIDatabaseAnalyzer.Models;
+using AIDatabaseAnalyzer.Services.Database;
+using AIDatabaseAnalyzer.Services.Insights;
 
 namespace AIDatabaseAnalyzer.Services.Reporting;
+
+/// <summary>What the diagram can show besides the schema: health findings, AI report mentions and a table or finding to focus.</summary>
+public sealed class DiagramContext
+{
+    public SchemaInsights? Insights { get; init; }
+
+    /// <summary>The latest AI report of the same database; tables mentioned in it link back to its sections.</summary>
+    public AnalysisReport? Report { get; init; }
+
+    public string? FocusTable { get; init; }
+    public string? FocusRule { get; init; }
+
+    /// <summary>Start with the health lens switched on (tables coloured by their worst finding).</summary>
+    public bool HealthLens { get; init; }
+}
 
 /// <summary>
 /// Builds the self-contained interactive ER diagram page (no external scripts, works offline).
@@ -15,7 +32,8 @@ public static class DiagramHtmlBuilder
 
     /// <param name="theme">"auto", "light" or "dark".</param>
     /// <param name="embedded">True inside the app (the host provides the export buttons); false for a standalone file.</param>
-    public static string Build(DatabaseSchema schema, string theme = "auto", bool embedded = true, string? template = null, bool includeSamples = true)
+    public static string Build(DatabaseSchema schema, string theme = "auto", bool embedded = true, string? template = null,
+        bool includeSamples = true, DiagramContext? context = null)
     {
         template ??= LoadTemplate();
 
@@ -26,7 +44,7 @@ public static class DiagramHtmlBuilder
             .Replace("__FONT__", HtmlTheme.FontStack)
             .Replace("__MONO__", HtmlTheme.MonoStack)
             .Replace("__EMBEDDED__", embedded ? "true" : "false")
-            .Replace("__DATA__", BuildDataJson(schema, includeSamples)); // last: the data must never be touched by token replacement
+            .Replace("__DATA__", BuildDataJson(schema, includeSamples, context)); // last: the data must never be touched by token replacement
     }
 
     private static string LoadTemplate()
@@ -38,9 +56,31 @@ public static class DiagramHtmlBuilder
         return reader.ReadToEnd();
     }
 
-    public static string BuildDataJson(DatabaseSchema schema, bool includeSamples = true)
+    /// <summary>Opening and closing identifier quotes, and the identifiers that can stay unquoted, per engine.</summary>
+    private static (string Open, string Close, string Safe) Quoting(DbEngine engine) => engine switch
+    {
+        DbEngine.SqlServer => ("[", "]", SqlCatalog.SafeIdentifierPattern(engine)),
+        DbEngine.MySql => ("`", "`", SqlCatalog.SafeIdentifierPattern(engine)),
+        _ => ("\"", "\"", SqlCatalog.SafeIdentifierPattern(engine))
+    };
+
+    public static string BuildDataJson(DatabaseSchema schema, bool includeSamples = true, DiagramContext? context = null)
     {
         var tableNames = new HashSet<string>(schema.Tables.Select(t => t.FullName), StringComparer.OrdinalIgnoreCase);
+
+        // findings per table, most severe first
+        var rules = (context?.Insights?.Findings ?? Array.Empty<Finding>()).Where(f => f.Tables.Count > 0).OrderByDescending(f => f.Severity).ToList();
+        var findingsByTable = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < rules.Count; i++)
+            foreach (string table in rules[i].Tables)
+            {
+                if (!findingsByTable.TryGetValue(table, out var list)) findingsByTable[table] = list = new List<int>();
+                list.Add(i);
+            }
+
+        var report = context?.Report;
+        var mentions = report is null ? new Dictionary<string, List<int>>() : SchemaLinks.Mentions(report, schema);
+        var quoting = Quoting(schema.Engine);
         var fkColumns = schema.ForeignKeys
             .GroupBy(f => f.FromTable, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.SelectMany(f => f.FromColumns).ToHashSet(StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
@@ -53,6 +93,48 @@ public static class DiagramHtmlBuilder
             w.WriteStartObject("meta");
             w.WriteString("db", schema.DatabaseName);
             w.WriteString("engine", schema.Engine.DisplayName());
+            w.WriteStartArray("q");
+            w.WriteStringValue(quoting.Open);
+            w.WriteStringValue(quoting.Close);
+            w.WriteStringValue(quoting.Safe);
+            w.WriteEndArray();
+            w.WriteStartArray("rw");
+            foreach (string word in SqlCatalog.ReservedWords) w.WriteStringValue(word.ToLowerInvariant());
+            w.WriteEndArray();
+            if (context?.Insights is { } insights)
+            {
+                w.WriteNumber("score", insights.Score);
+                w.WriteString("grade", insights.Grade);
+            }
+            w.WriteEndObject();
+
+            w.WriteStartArray("rules");
+            foreach (var f in rules)
+            {
+                w.WriteStartObject();
+                w.WriteString("id", f.RuleId);
+                w.WriteNumber("s", (int)f.Severity);
+                w.WriteString("t", f.Title);
+                w.WriteString("r", f.Recommendation);
+                w.WriteNumber("n", f.Tables.Count);
+                w.WriteEndObject();
+            }
+            w.WriteEndArray();
+
+            w.WriteStartObject("report");
+            if (report is not null)
+            {
+                w.WriteString("id", report.Id);
+                w.WriteStartArray("s");
+                foreach (var section in report.Sections) w.WriteStringValue(section.Title);
+                w.WriteEndArray();
+            }
+            w.WriteEndObject();
+
+            w.WriteStartObject("init");
+            if (context?.FocusTable is { Length: > 0 } focusTable) w.WriteString("table", focusTable);
+            if (context?.FocusRule is { Length: > 0 } focusRule) w.WriteString("rule", focusRule);
+            if (context?.HealthLens == true || context?.FocusRule is { Length: > 0 }) w.WriteBoolean("health", true);
             w.WriteEndObject();
 
             w.WriteStartArray("tables");
@@ -62,7 +144,20 @@ public static class DiagramHtmlBuilder
 
                 w.WriteStartObject();
                 w.WriteString("n", table.FullName);
+                w.WriteString("q", SqlCatalog.SqlName(schema.Engine, table));
                 if (table.RowCount is { } rows) w.WriteNumber("r", rows);
+                if (findingsByTable.TryGetValue(table.FullName, out var tableFindings))
+                {
+                    w.WriteStartArray("f");
+                    foreach (int i in tableFindings) w.WriteNumberValue(i);
+                    w.WriteEndArray();
+                }
+                if (mentions.TryGetValue(table.FullName, out var sections))
+                {
+                    w.WriteStartArray("m");
+                    foreach (int i in sections) w.WriteNumberValue(i);
+                    w.WriteEndArray();
+                }
 
                 w.WriteStartArray("c");
                 foreach (var c in table.Columns)

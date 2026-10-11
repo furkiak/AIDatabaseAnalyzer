@@ -1,4 +1,5 @@
 using AIDatabaseAnalyzer.Services.Infrastructure;
+using AIDatabaseAnalyzer.ViewModels;
 
 namespace AIDatabaseAnalyzer.Views;
 
@@ -9,16 +10,8 @@ public partial class ReportsView : ContentView
         InitializeComponent();
         Layouts.ConstrainWidth(this, Column, 1000);
 
-        // Links inside a report open in the user's browser instead of replacing the report.
-        Viewer.Navigating += (_, e) =>
-        {
-            if (e.Url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-                || e.Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-                || e.Url.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
-            {
-                e.Cancel = true;
-                _ = Launcher.Default.TryOpenAsync(new Uri(e.Url));
-            }
-        };
+        // Table names open the diagram, code blocks copy through the app, web links open in the browser.
+        HostLinks.Attach(Viewer, (command, argument) =>
+            BindingContext is ReportsViewModel viewModel ? viewModel.HandleLinkAsync(command, argument) : Task.CompletedTask);
     }
 }

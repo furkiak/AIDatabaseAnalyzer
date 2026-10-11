@@ -224,7 +224,17 @@ public sealed class DbSchemaService : IDbSchemaService
     {
         var engine = connection.Engine;
         string? defaultSchema = engine.DefaultSchema();
-        var schema = new DatabaseSchema { DatabaseName = database, Engine = engine, IndexesIncluded = options.IncludeIndexes };
+        var schema = new DatabaseSchema
+        {
+            DatabaseName = database,
+            Engine = engine,
+            IndexesIncluded = options.IncludeIndexes,
+            ViewsIncluded = options.IncludeViews,
+            TriggersIncluded = options.IncludeTriggers,
+            RoutinesIncluded = options.IncludeRoutines,
+            ConstraintsIncluded = options.IncludeConstraints,
+            DefinitionsIncluded = options.IncludeDefinitions
+        };
 
         await using var conn = await OpenAsync(connection, database, ct).ConfigureAwait(false);
         schema.ServerVersion = conn.ServerVersion;
@@ -235,7 +245,11 @@ public sealed class DbSchemaService : IDbSchemaService
         await ReadRowsAsync(conn, SqlCatalog.Tables(engine), r =>
         {
             var table = new TableInfo { Schema = r.Str(0), Name = r.Str(1) ?? "", RowCount = r.Long(2), DefaultSchema = defaultSchema };
-            if (options.SelectedTables is not null && !options.SelectedTables.Contains(table.FullName)) return;
+            if (options.SelectedTables is not null && !options.SelectedTables.Contains(table.FullName))
+            {
+                schema.IsPartial = true;
+                return;
+            }
             byKey[Key(table.Schema, table.Name)] = table;
             schema.Tables.Add(table);
         }, ct).ConfigureAwait(false);

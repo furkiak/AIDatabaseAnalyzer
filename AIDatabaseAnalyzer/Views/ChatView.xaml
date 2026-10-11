@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:AIDatabaseAnalyzer.ViewModels"
+             x:Class="AIDatabaseAnalyzer.Views.ChatView"
+             x:DataType="vm:ChatViewModel">
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="12" Padding="0,26,0,10">
+
+        <!-- header -->
+        <Border Grid.Row="0" StyleClass="Glass" Padding="18,12">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                <VerticalStackLayout Spacing="0" VerticalOptions="Center">
+                    <Label Text="Ask AI about your schema" StyleClass="Headline" />
+                    <Label Text="{Binding ProviderText}" StyleClass="Caption" />
+                </VerticalStackLayout>
+                <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                    <Button Text="Copy chat" StyleClass="Small" Command="{Binding CopyConversationCommand}" />
+                    <Button Text="New chat" StyleClass="Small" Command="{Binding ClearCommand}" />
+                </HorizontalStackLayout>
+            </Grid>
+        </Border>
+
+        <!-- conversation -->
+        <Border Grid.Row="1" StyleClass="Glass" Padding="0">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="18" />
+            </Border.StrokeShape>
+            <Grid>
+                <WebView x:Name="Conversation" BackgroundColor="Transparent">
+                    <WebView.Source>
+                        <HtmlWebViewSource Html="{Binding Html}" />
+                    </WebView.Source>
+                </WebView>
+
+                <VerticalStackLayout IsVisible="{Binding IsEmpty}" Spacing="16" Padding="40" VerticalOptions="Center" HorizontalOptions="Center" MaximumWidthRequest="680">
+                    <Label Text="What would you like to know?" StyleClass="Title" HorizontalTextAlignment="Center" />
+                    <Label Text="Questions are answered with the extracted schema and the automated findings as context. Table names in the answers open the ER diagram; SQL blocks can be copied."
+                           StyleClass="Body" HorizontalTextAlignment="Center" />
+                    <FlexLayout Wrap="Wrap" JustifyContent="Center" BindableLayout.ItemsSource="{Binding Suggestions}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FilterChip">
+                                <Border StyleClass="Tile" Padding="12,8" Margin="4">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding SelectCommand}" />
+                                    </Border.GestureRecognizers>
+                                    <Label Text="{Binding Text}" FontSize="13" MaximumWidthRequest="300" />
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+                </VerticalStackLayout>
+            </Grid>
+        </Border>
+
+        <!-- input -->
+        <Border Grid.Row="2" StyleClass="Glass" Padding="12,8">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <Border Grid.Column="0" StyleClass="Field">
+                    <Editor Text="{Binding Input}" Placeholder="Ask about tables, relationships, queries, performance, security…"
+                            AutoSize="TextChanges" MaximumHeightRequest="140" IsEnabled="{Binding IsIdle}" />
+                </Border>
+                <Grid Grid.Column="1" VerticalOptions="End">
+                    <Button Text="Send" StyleClass="Primary" Command="{Binding SendCommand}" IsVisible="{Binding IsIdle}" />
+                    <Button Text="Stop" StyleClass="Danger" Command="{Binding StopCommand}" IsVisible="{Binding IsBusy}" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <Label Grid.Row="3" Text="{Binding UsageText}" StyleClass="Caption" HorizontalOptions="Center" />
+    </Grid>
+</ContentView>

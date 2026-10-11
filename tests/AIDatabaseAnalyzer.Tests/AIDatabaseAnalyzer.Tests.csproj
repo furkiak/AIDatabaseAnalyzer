@@ -22,6 +22,7 @@
 		<Compile Include="$(App)Services\Markdown\**\*.cs" LinkBase="App\Services\Markdown" />
 		<Compile Include="$(App)Services\Reporting\**\*.cs" LinkBase="App\Services\Reporting" />
 		<Compile Include="$(App)Services\Llm\**\*.cs" LinkBase="App\Services\Llm" />
+		<Compile Include="$(App)Services\History\**\*.cs" LinkBase="App\Services\History" />
 		<EmbeddedResource Include="$(App)Resources\Web\diagram.html" LogicalName="AIDatabaseAnalyzer.Web.diagram.html" />
 	</ItemGroup>
 

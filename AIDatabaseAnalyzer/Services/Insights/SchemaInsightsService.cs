@@ -567,13 +567,8 @@ public static class SchemaInsightsService
     {
         var hits = new List<string>();
         bool large = false;
-        foreach (var fk in c.Schema.ForeignKeys)
+        foreach (var fk in UnindexedForeignKeys(c.Schema, c.IndexesByTable))
         {
-            var indexes = c.IndexesByTable[fk.FromTable];
-            bool covered = indexes.Any(ix => ix.Columns.Count >= fk.FromColumns.Count
-                && fk.FromColumns.All(col => ix.Columns.Take(fk.FromColumns.Count).Contains(col, StringComparer.OrdinalIgnoreCase)));
-            if (covered) continue;
-
             hits.Add($"{fk.FromTable}({string.Join(", ", fk.FromColumns)}) → {fk.ToTable}");
             if (c.Schema.FindTable(fk.FromTable)?.RowCount > 100_000) large = true;
         }
@@ -586,10 +581,25 @@ public static class SchemaInsightsService
             hits, c.Schema.ForeignKeys.Count);
     }
 
-    private static void DuplicateIndexes(Context c)
+    /// <summary>Foreign keys whose columns are not the leading columns of any index (shared with the fix script).</summary>
+    internal static IEnumerable<ForeignKeyInfo> UnindexedForeignKeys(DatabaseSchema schema, IReadOnlyDictionary<string, List<IndexInfo>>? byTable = null)
     {
-        var hits = new List<string>();
-        foreach (var (table, indexes) in c.IndexesByTable)
+        byTable ??= IndexesByTable(schema);
+        foreach (var fk in schema.ForeignKeys)
+        {
+            if (!byTable.TryGetValue(fk.FromTable, out var indexes)) continue;
+            bool covered = indexes.Any(ix => ix.Columns.Count >= fk.FromColumns.Count
+                && fk.FromColumns.All(col => ix.Columns.Take(fk.FromColumns.Count).Contains(col, StringComparer.OrdinalIgnoreCase)));
+            if (!covered) yield return fk;
+        }
+    }
+
+    /// <summary>Indexes that duplicate another one exactly, or are a left prefix of a wider one (shared with the fix script).</summary>
+    internal static IEnumerable<(string Table, IndexInfo Redundant, IndexInfo Keep, bool Exact)> RedundantIndexes(
+        DatabaseSchema schema, IReadOnlyDictionary<string, List<IndexInfo>>? byTable = null)
+    {
+        byTable ??= IndexesByTable(schema);
+        foreach (var (table, indexes) in byTable)
         {
             var list = indexes.ToList();
             var handled = new HashSet<IndexInfo>();
@@ -602,7 +612,7 @@ public static class SchemaInsightsService
                 foreach (var dup in group.Where(x => !ReferenceEquals(x, keep)))
                 {
                     handled.Add(dup);
-                    hits.Add($"{table}: {dup.Name} duplicates {keep.Name} ({string.Join(", ", dup.Columns)})");
+                    yield return (table, dup, keep, true);
                 }
             }
 
@@ -611,9 +621,26 @@ public static class SchemaInsightsService
                 var cover = list.FirstOrDefault(other => !ReferenceEquals(other, ix) && !handled.Contains(other)
                     && other.Columns.Count > ix.Columns.Count
                     && ix.Columns.Select((col, i) => string.Equals(col, other.Columns[i], StringComparison.OrdinalIgnoreCase)).All(x => x));
-                if (cover is not null) hits.Add($"{table}: {ix.Name} ({string.Join(", ", ix.Columns)}) is covered by {cover.Name} ({string.Join(", ", cover.Columns)})");
+                if (cover is not null) yield return (table, ix, cover, false);
             }
         }
+    }
+
+    private static Dictionary<string, List<IndexInfo>> IndexesByTable(DatabaseSchema schema)
+    {
+        var map = schema.Tables.ToDictionary(t => t.FullName, _ => new List<IndexInfo>(), StringComparer.OrdinalIgnoreCase);
+        foreach (var ix in schema.Indexes)
+            if (map.TryGetValue(ix.Table, out var list)) list.Add(ix);
+        return map;
+    }
+
+    private static void DuplicateIndexes(Context c)
+    {
+        var hits = RedundantIndexes(c.Schema, c.IndexesByTable)
+            .Select(r => r.Exact
+                ? $"{r.Table}: {r.Redundant.Name} duplicates {r.Keep.Name} ({string.Join(", ", r.Redundant.Columns)})"
+                : $"{r.Table}: {r.Redundant.Name} ({string.Join(", ", r.Redundant.Columns)}) is covered by {r.Keep.Name} ({string.Join(", ", r.Keep.Columns)})")
+            .ToList();
 
         if (hits.Count == 0) return;
         c.Add("DUPLICATE_INDEXES", FindingSeverity.Medium, FindingCategory.Performance,
@@ -684,6 +711,7 @@ public static class SchemaInsightsService
         {
             Schema = schema;
             IndexesByTable = schema.Tables.ToDictionary(t => t.FullName, _ => new List<IndexInfo>(), StringComparer.OrdinalIgnoreCase);
+            TablesLongestFirst = schema.Tables.Select(t => t.FullName).OrderByDescending(n => n.Length).ToList();
             foreach (var ix in schema.Indexes)
             {
                 if (IndexesByTable.TryGetValue(ix.Table, out var list)) list.Add(ix);
@@ -691,6 +719,7 @@ public static class SchemaInsightsService
         }
 
         public DatabaseSchema Schema { get; }
+        private List<string> TablesLongestFirst { get; }
         public Dictionary<string, List<IndexInfo>> IndexesByTable { get; }
         public List<(Finding Finding, double Ratio)> Entries { get; } = new();
 
@@ -710,8 +739,20 @@ public static class SchemaInsightsService
                 Description = description,
                 Recommendation = recommendation,
                 Objects = listed,
-                Count = count
+                Count = count,
+                Tables = objects.Select(TableAtStart).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToList()
             }, Math.Min(1.0, count / (double)Math.Max(total, 1))));
+        }
+
+        /// <summary>The table an object description starts with ("orders(customer_id) → customers" → orders); longest name wins.</summary>
+        private string? TableAtStart(string text)
+        {
+            foreach (string table in TablesLongestFirst)
+            {
+                if (!text.StartsWith(table, StringComparison.OrdinalIgnoreCase)) continue;
+                if (text.Length == table.Length || text[table.Length] is '.' or '(' or ' ' or ',' or ':') return table;
+            }
+            return null;
         }
     }
 

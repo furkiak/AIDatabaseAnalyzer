@@ -39,6 +39,37 @@ public static class SqlCatalog
         _ => "\"" + identifier.Replace("\"", "\"\"") + "\"" // PostgreSQL, Oracle, SQLite
     };
 
+    /// <summary>Identifiers that can stay unquoted in generated SQL (anything else is quoted).</summary>
+    public static string SafeIdentifierPattern(DbEngine engine) => engine switch
+    {
+        DbEngine.PostgreSql => "^[a-z_][a-z0-9_]*$",       // unquoted names fold to lower case
+        DbEngine.Oracle => "^[A-Z][A-Z0-9_$#]*$",          // unquoted names fold to upper case
+        _ => "^[A-Za-z_][A-Za-z0-9_]*$"
+    };
+
+    /// <summary>Quotes an identifier only when the engine needs it, so generated SQL stays readable.</summary>
+    public static string QuoteIfNeeded(DbEngine engine, string identifier) =>
+        System.Text.RegularExpressions.Regex.IsMatch(identifier, SafeIdentifierPattern(engine)) && !IsReservedWord(identifier)
+            ? identifier
+            : Quote(engine, identifier);
+
+    /// <summary>The table name for generated SQL: default schema omitted, quotes only where needed.</summary>
+    public static string SqlName(DbEngine engine, TableInfo table) =>
+        string.IsNullOrEmpty(table.Schema) || table.Schema == table.DefaultSchema
+            ? QuoteIfNeeded(engine, table.Name)
+            : QuoteIfNeeded(engine, table.Schema) + "." + QuoteIfNeeded(engine, table.Name);
+
+    /// <summary>Common reserved words that are also popular column or table names; they are always quoted.</summary>
+    public static IReadOnlyCollection<string> ReservedWords => Reserved;
+
+    private static readonly HashSet<string> Reserved = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "user", "order", "group", "table", "select", "from", "where", "index", "key", "check", "default", "desc", "asc",
+        "column", "comment", "date", "level", "size", "type", "number", "session", "role", "grant", "option", "values", "range"
+    };
+
+    private static bool IsReservedWord(string identifier) => Reserved.Contains(identifier);
+
     public static string QuoteTable(DbEngine engine, TableInfo table) =>
         string.IsNullOrEmpty(table.Schema)
             ? Quote(engine, table.Name)

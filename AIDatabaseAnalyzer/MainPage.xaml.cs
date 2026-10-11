@@ -16,7 +16,9 @@ public partial class MainPage : ContentPage
         AnalysisViewModel analysis,
         ReportsViewModel reports,
         SettingsViewModel settings,
-        DiagramViewModel diagram)
+        DiagramViewModel diagram,
+        ChatViewModel chat,
+        SnapshotsViewModel snapshots)
     {
         InitializeComponent();
 
@@ -29,6 +31,8 @@ public partial class MainPage : ContentPage
         ReportsPanel.BindingContext = reports;
         SettingsPanel.BindingContext = settings;
         DiagramPanel.BindingContext = diagram;
+        ChatPanel.BindingContext = chat;
+        SnapshotsPanel.BindingContext = snapshots;
 
         shell.PropertyChanged += OnShellPropertyChanged;
     }
@@ -46,6 +50,8 @@ public partial class MainPage : ContentPage
             AppSection.Analysis => AnalysisPanel,
             AppSection.Reports => ReportsPanel,
             AppSection.Settings => SettingsPanel,
+            AppSection.Chat => ChatPanel,
+            AppSection.Snapshots => SnapshotsPanel,
             _ => DiagramPanel
         };
 

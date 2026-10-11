@@ -68,6 +68,29 @@ public static class PromptBuilder
         return sb.ToString();
     }
 
+    /// <summary>System prompt of the schema chat: the same schema block as the analysis, with conversational answer rules.</summary>
+    public static string ChatSystemPrompt(DatabaseSchema schema, string schemaJson, SchemaInsights? insights)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"You are a senior database architect and SQL expert. You answer questions about one {schema.Engine.DisplayName()} database.");
+        sb.AppendLine(SchemaHeader(schema));
+        sb.AppendLine();
+        sb.AppendLine("## How to answer");
+        sb.AppendLine("- Answer in the language of the user's question, in concise Markdown.");
+        sb.AppendLine($"- When the user asks for a query or a change, write correct SQL for {SqlDialect(schema.Engine)} in ```sql blocks, using only tables and columns that exist in the schema, joined along the foreign keys.");
+        sb.AppendLine("- Write object names exactly as they appear in the schema, in backticks (for example `Orders.CustomerId`), so the app can link them to the ER diagram.");
+        sb.AppendLine("- Prefer read-only queries; when you suggest a change (DDL or DML), warn about locks, data loss and the need for a backup or a test copy.");
+        sb.AppendLine("- If the schema does not contain what the question needs, say so instead of guessing. Sample values may be masked.");
+        string notes = EngineNotes(schema.Engine);
+        if (notes.Length > 0) sb.AppendLine(notes);
+        sb.AppendLine();
+        sb.AppendLine("<schema>");
+        sb.AppendLine(schemaJson);
+        sb.AppendLine("</schema>");
+        sb.Append(FindingsDigest(insights));
+        return sb.ToString();
+    }
+
     /// <summary>A small system prompt without the schema, for summaries when the context window is tight (local models).</summary>
     public static string CompactSystemPrompt(DatabaseSchema schema, SchemaInsights? insights, string language)
     {

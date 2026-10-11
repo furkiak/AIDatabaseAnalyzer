@@ -460,6 +460,7 @@ public partial class AnalysisViewModel : ObservableObject
             pdfNote = $" (PDF could not be created: {ex.GetBaseException().Message})";
         }
 
+        _session.LatestReport = report;
         _session.NotifyReportSaved(report.Id);
         Progress = 1;
         StatusText = cancelled ? "Cancelled — partial report saved." : "Analysis complete.";

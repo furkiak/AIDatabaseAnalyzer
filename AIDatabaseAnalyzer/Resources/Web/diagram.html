@@ -41,6 +41,23 @@ button.tool.on{background:var(--accent);color:#fff;border-color:transparent}
 #close{position:absolute;top:12px;right:12px;border:none;background:var(--code-bg);color:var(--text-2);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px}
 #empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--text-3);font-size:15px}
 .node{cursor:pointer}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 2px}
+.acts button,.row button,#banner button{border:1px solid var(--line);background:var(--glass-strong);color:var(--text);border-radius:10px;padding:5px 10px;font:600 12px __FONT__;cursor:pointer}
+.acts button:hover,.row button:hover,#banner button:hover{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.acts button.on{background:var(--accent);color:#fff;border-color:transparent}
+.sev{display:inline-block;min-width:56px;text-align:center;padding:1px 6px;border-radius:6px;font-size:9.5px;font-weight:800;letter-spacing:.05em;color:#fff;margin-right:6px;vertical-align:1px}
+.fd{padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;cursor:pointer}
+.fd:hover b{color:var(--accent)}
+.fd small{display:block;color:var(--text-3);margin-top:3px;line-height:1.35}
+.note{padding:8px 10px;border-radius:10px;background:var(--accent-soft);color:var(--text);font-size:12px;margin:8px 0;line-height:1.45}
+.note.bad{background:rgba(255,69,58,.14)}
+pre.sql{margin:8px 0 4px;padding:10px 12px;border-radius:10px;background:var(--code-bg);font:11.5px/1.55 __MONO__;white-space:pre-wrap;word-break:break-word;color:var(--text)}
+.row{display:flex;gap:6px;align-items:center}
+.row input{flex:1;min-width:0;border:1px solid var(--line);background:var(--glass-strong);color:var(--text);border-radius:10px;padding:6px 10px;font:inherit;outline:none}
+.row input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+#legend .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+#banner{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;padding:8px 10px 8px 16px;display:none;align-items:center;gap:12px;font-weight:600;max-width:min(760px,70%)}
+#banner span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -53,6 +70,7 @@ button.tool.on{background:var(--accent);color:#fff;border-color:transparent}
   <button class="tool" id="bOut" title="Zoom out">－</button>
   <button class="tool" id="bCols" title="Show all columns">All columns</button>
   <button class="tool" id="bLayout" title="Re-run the automatic layout">Re-layout</button>
+  <button class="tool" id="bHealth" title="Colour every table by its most severe finding">Health</button>
   <button class="tool" id="bSvg" title="Download as SVG">SVG</button>
 </div>
 <div id="stats" class="glass"></div>
@@ -62,6 +80,8 @@ button.tool.on{background:var(--accent);color:#fff;border-color:transparent}
   <span>Crow's foot = many &nbsp;·&nbsp; bar = one</span>
 </div>
 <aside id="panel" class="glass"><button id="close" title="Close">✕</button><div id="panelBody"></div></aside>
+<div id="banner" class="glass"><span id="bannerText"></span><button id="bannerClear">Clear</button></div>
+<datalist id="tableList"></datalist>
 
 <script id="data" type="application/json">__DATA__</script>
 <script>
@@ -84,8 +104,36 @@ var P = readPalette();
 var nodes = [], nodeById = {}, edges = [], adj = {};
 var gViewport, gEdges, gNodes;
 var measureCtx = document.createElement('canvas').getContext('2d');
+var lens = false;      // health lens: tables coloured by their worst finding
+var mode = null;       // { kind, ids, roles, edges, cascade, label } — impact, path, rule or neighbourhood highlight
+var RULES = DATA.rules || [];
+var REPORT = DATA.report || {};
+var SEV_NAMES = ['INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+var SEV_COLORS = ['#8E8E93', '#0A84FF', '#E8A317', '#FF7A45', '#FF453A'];
+var RESERVED = { as: 1, at: 1, by: 1, do: 1, go: 1, if: 1, in: 1, is: 1, no: 1, of: 1, on: 1, or: 1, to: 1, all: 1, and: 1, asc: 1, end: 1, for: 1, key: 1, not: 1, set: 1, top: 1, use: 1 };
 
 if (EMBEDDED) document.getElementById('bSvg').style.display = 'none';
+if (!RULES.length) document.getElementById('bHealth').style.display = 'none';
+
+/** Sends a command to the hosting app (only inside the app). */
+function host(cmd, arg) {
+  if (!EMBEDDED) return false;
+  window.location.href = 'aida://' + cmd + '/' + encodeURIComponent(arg == null ? '' : String(arg));
+  return true;
+}
+function copyText(text) {
+  if (host('copy', text)) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text); return; }
+  var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); } catch (e) { /* ignore */ }
+  ta.remove();
+}
+function worst(n) {
+  var w = -1;
+  (n.t.f || []).forEach(function (i) { if (RULES[i] && RULES[i].s > w) w = RULES[i].s; });
+  return w;
+}
+function sevColor(s) { return s < 0 ? P.good : SEV_COLORS[Math.min(4, s)]; }
 
 // ------------------------------------------------------------------ palette
 function readPalette() {
@@ -305,7 +353,7 @@ function hue(n) { return P.hues[n.comp % P.hues.length]; }
 function drawNode(n) {
   var g = el('g', { 'class': 'node', 'data-id': n.id, transform: 'translate(' + n.x + ',' + n.y + ')' }, gNodes);
   n.g = g;
-  var color = hue(n);
+  var color = lens ? sevColor(worst(n)) : hue(n);
   el('rect', { width: n.w, height: n.h, rx: 12, fill: P.surface, 'fill-opacity': 0.97, stroke: P.line, 'stroke-width': 1 }, g);
   var head = el('path', { d: 'M0,12 a12,12 0 0 1 12,-12 h' + (n.w - 24) + ' a12,12 0 0 1 12,12 v22 h-' + n.w + ' z', fill: color, 'fill-opacity': 0.9 }, g);
   var title = el('text', { x: 14, y: 22, fill: '#fff', 'font-family': FONT, 'font-size': 13, 'font-weight': 700 }, g);
@@ -330,8 +378,14 @@ function drawNode(n) {
     var more = el('text', { x: 14, y: 34 + cols.length * 20 + 14, fill: P.accent, 'font-family': FONT, 'font-size': 11, 'font-weight': 600 }, g);
     more.textContent = '+ ' + (n.t.c.length - cols.length) + ' more columns';
   }
+  if (lens && n.t.f && n.t.f.length) {
+    el('circle', { cx: n.w - 3, cy: -3, r: 11, fill: sevColor(worst(n)), stroke: P.surface, 'stroke-width': 2.5 }, g);
+    var count = el('text', { x: n.w - 3, y: 1, 'text-anchor': 'middle', fill: '#fff', 'font-family': FONT, 'font-size': 11, 'font-weight': 800 }, g);
+    count.textContent = n.t.f.length;
+  }
   var tip = document.createElementNS(NS, 'title');
-  tip.textContent = n.t.n + (n.t.r != null ? ' · ≈' + n.t.r.toLocaleString('en') + ' rows' : '');
+  tip.textContent = n.t.n + (n.t.r != null ? ' · ≈' + n.t.r.toLocaleString('en') + ' rows' : '') +
+    (n.t.f ? ' · ' + n.t.f.length + ' finding(s)' : '') + (n.t.m ? ' · mentioned in ' + n.t.m.length + ' report section(s)' : '');
   g.appendChild(tip);
 }
 
@@ -398,36 +452,269 @@ function matches(n) {
 function applyHighlight() {
   var focus = selected ? adj[selected.id] : null;
   nodes.forEach(function (n) {
+    if (!n.g) return;
     var dim = false;
-    if (selected) dim = !(n === selected || (focus && focus[n.id]));
+    if (mode) dim = !mode.ids[n.id];
+    else if (selected) dim = !(n === selected || (focus && focus[n.id]));
     if (query) dim = dim || !matches(n);
-    if (n.g) n.g.setAttribute('opacity', dim ? 0.22 : 1);
-    if (n.g) n.g.firstChild.setAttribute('stroke', n === selected ? P.accent : (query && matches(n) ? P.warn : P.line));
-    if (n.g) n.g.firstChild.setAttribute('stroke-width', n === selected || (query && matches(n)) ? 2.5 : 1);
+    var role = mode && mode.roles ? mode.roles[n.id] : null;
+    var stroke = role === 'down' ? P.bad : role === 'up' ? P.accent : role === 'root' || n === selected ? P.accent : (query && matches(n) ? P.warn : P.line);
+    n.g.setAttribute('opacity', dim ? 0.18 : 1);
+    n.g.firstChild.setAttribute('stroke', stroke);
+    n.g.firstChild.setAttribute('stroke-width', role || n === selected || (query && matches(n)) ? 2.6 : 1);
   });
   edges.forEach(function (e) {
     if (!e.el) return;
-    var on = selected && (e.a === selected || e.b === selected);
-    var off = (selected && !on) || (query && !(matches(e.a) && matches(e.b)));
-    e.el.setAttribute('opacity', off ? 0.12 : 1);
-    e.el.setAttribute('stroke', on ? P.accent : P.text3);
-    e.el.setAttribute('stroke-width', on ? 2.4 : 1.5);
+    var on, off;
+    if (mode) {
+      on = mode.edges ? mode.edges.indexOf(e) >= 0 : !!(mode.ids[e.a.id] && mode.ids[e.b.id]);
+      off = !on;
+    } else {
+      on = selected && (e.a === selected || e.b === selected);
+      off = selected && !on;
+    }
+    off = off || (query && !(matches(e.a) && matches(e.b)));
+    var cascade = mode && mode.cascade && mode.cascade.indexOf(e) >= 0;
+    e.el.setAttribute('opacity', off ? 0.1 : 1);
+    e.el.setAttribute('stroke', cascade ? P.bad : on ? P.accent : P.text3);
+    e.el.setAttribute('stroke-width', cascade || (on && mode && mode.kind === 'path') ? 3.2 : on ? 2.4 : 1.5);
   });
+  var banner = document.getElementById('banner');
+  banner.style.display = mode && mode.label ? 'flex' : 'none';
+  if (mode && mode.label) document.getElementById('bannerText').textContent = mode.label;
+}
+
+function setMode(m, fitNodes) {
+  mode = m;
+  applyHighlight();
+  if (m && fitNodes && fitNodes.length) fitTo(fitNodes);
+}
+
+// ------------------------------------------------------------------ impact, neighbourhood, join paths, findings
+function impactOf(n) {
+  var down = {}, up = {}, cascade = [], q;
+  q = [n];
+  while (q.length) {
+    var cur = q.shift();
+    edges.forEach(function (e) { if (e.b === cur && e.a !== cur && !down[e.a.id] && e.a !== n) { down[e.a.id] = true; q.push(e.a); } });
+  }
+  var cascaded = {}; cascaded[n.id] = true; q = [n];
+  while (q.length) {
+    var c = q.shift();
+    edges.forEach(function (e) {
+      if (e.b === c && e.a !== c && e.r.d === 'CASCADE') { cascade.push(e); if (!cascaded[e.a.id]) { cascaded[e.a.id] = true; q.push(e.a); } }
+    });
+  }
+  q = [n];
+  while (q.length) {
+    var u = q.shift();
+    edges.forEach(function (e) { if (e.a === u && e.b !== u && !up[e.b.id] && e.b !== n) { up[e.b.id] = true; q.push(e.b); } });
+  }
+  return { down: Object.keys(down), up: Object.keys(up), cascade: cascade, cascadedTables: Object.keys(cascaded).length - 1 };
+}
+
+function showImpact(n) {
+  var imp = impactOf(n), ids = {}, roles = {};
+  ids[n.id] = true; roles[n.id] = 'root';
+  imp.down.forEach(function (id) { ids[id] = true; roles[id] = 'down'; });
+  imp.up.forEach(function (id) { ids[id] = true; if (!roles[id]) roles[id] = 'up'; });
+  var label = 'Impact of ' + n.id + ': ' + imp.down.length + ' table(s) depend on it' +
+    (imp.cascadedTables ? ' (' + imp.cascadedTables + ' deleted by ON DELETE CASCADE)' : '') + ' · it depends on ' + imp.up.length;
+  setMode({ kind: 'impact', ids: ids, roles: roles, cascade: imp.cascade, label: label }, Object.keys(ids).map(function (id) { return nodeById[id]; }));
+  return imp;
+}
+
+function showNeighbours(n) {
+  var ids = {}; ids[n.id] = true;
+  Object.keys(adj[n.id]).forEach(function (id) { ids[id] = true; });
+  var roles = {}; roles[n.id] = 'root';
+  setMode({ kind: 'focus', ids: ids, roles: roles, label: n.id + ' and its ' + (Object.keys(ids).length - 1) + ' direct neighbour(s)' },
+    Object.keys(ids).map(function (id) { return nodeById[id]; }));
+}
+
+function findPath(from, to) {
+  if (from === to) return [from];
+  var prev = {}, seen = {}, q = [from]; seen[from.id] = true;
+  while (q.length) {
+    var cur = q.shift();
+    var next = Object.keys(adj[cur.id]);
+    for (var i = 0; i < next.length; i++) {
+      if (seen[next[i]]) continue;
+      seen[next[i]] = true; prev[next[i]] = cur;
+      if (next[i] === to.id) {
+        var path = [to], p = cur;
+        while (p) { path.unshift(p); p = prev[p.id]; }
+        return path;
+      }
+      q.push(nodeById[next[i]]);
+    }
+  }
+  return null;
+}
+
+function quoteIdent(id) {
+  var q = (DATA.meta && DATA.meta.q) || ['"', '"', '^[A-Za-z_][A-Za-z0-9_]*$'];
+  var reserved = (DATA.meta && DATA.meta.rw) || [];
+  return new RegExp(q[2]).test(id) && reserved.indexOf(id.toLowerCase()) < 0 ? id : q[0] + id.split(q[1]).join(q[1] + q[1]) + q[1];
+}
+
+function joinSql(path) {
+  var alias = {}, used = {};
+  path.forEach(function (n) {
+    var words = n.t.n.split('.').pop().replace(/([a-z])([A-Z])/g, '$1 $2').split(/[^A-Za-z0-9]+/).filter(Boolean);
+    var base = words.map(function (w) { return w[0]; }).join('').toLowerCase().slice(0, 3) || 't';
+    if (!/^[a-z]/.test(base)) base = 't' + base;
+    var a = base, k = 2;
+    while (used[a] || RESERVED[a]) a = base + k++;
+    used[a] = true; alias[n.id] = a;
+  });
+  var lines = ['SELECT ' + path.map(function (n) { return alias[n.id] + '.*'; }).slice(0, 1).join(', '),
+               'FROM ' + (path[0].t.q || path[0].t.n) + ' ' + alias[path[0].id]];
+  var used2 = [];
+  for (var i = 1; i < path.length; i++) {
+    var u = path[i - 1], v = path[i];
+    var e = edges.filter(function (x) { return used2.indexOf(x) < 0 && ((x.a === u && x.b === v) || (x.a === v && x.b === u)); })[0];
+    if (!e) continue;
+    used2.push(e);
+    var cond = e.r.fc.map(function (c, k) { return alias[e.a.id] + '.' + quoteIdent(c) + ' = ' + alias[e.b.id] + '.' + quoteIdent(e.r.tc[k]); }).join(' AND ');
+    lines.push('JOIN ' + (v.t.q || v.t.n) + ' ' + alias[v.id] + ' ON ' + cond);
+  }
+  return { sql: lines.join('\n') + ';', edges: used2 };
+}
+
+function showPath(from, to) {
+  var path = findPath(from, to);
+  if (!path) return null;
+  var js = joinSql(path), ids = {}, roles = {};
+  path.forEach(function (n) { ids[n.id] = true; });
+  roles[from.id] = 'root'; roles[to.id] = 'root';
+  setMode({ kind: 'path', ids: ids, roles: roles, edges: js.edges, label: 'Join path: ' + path.map(function (n) { return n.id; }).join(' → ') }, path);
+  return { path: path, sql: js.sql };
+}
+
+function showRule(id) {
+  var index = -1;
+  RULES.forEach(function (r, i) { if (r.id === id) index = i; });
+  if (index < 0) return false;
+  var r = RULES[index], ids = {}, list = [];
+  nodes.forEach(function (n) { if ((n.t.f || []).indexOf(index) >= 0) { ids[n.id] = true; list.push(n); } });
+  if (!lens) setLens(true);
+  selected = null;
+  setMode({ kind: 'rule', ids: ids, label: r.t + ' — ' + list.length + ' table(s)' }, list);
+  panelBody.innerHTML = '<h2>' + esc(r.t) + '</h2><div class="sub"><span class="sev" style="background:' + sevColor(r.s) + '">' + SEV_NAMES[r.s] + '</span>' + list.length + ' table(s)</div>' +
+    '<div class="note">' + esc(r.r) + '</div><h3>Affected tables</h3>' +
+    list.map(function (n) { return '<div class="rel"><a data-goto="' + esc(n.id) + '">' + esc(n.id) + '</a>' + (n.t.r != null ? ' <span style="color:var(--text-3)">· ' + formatRows(n.t.r) + '</span>' : '') + '</div>'; }).join('');
+  panel.style.display = 'block';
+  wirePanel(null);
+  return true;
+}
+
+function setLens(on) {
+  lens = on;
+  document.getElementById('bHealth').classList.toggle('on', on);
+  renderLegend();
+  render();
+}
+
+function renderLegend() {
+  var legend = document.getElementById('legend');
+  if (lens) {
+    legend.innerHTML = SEV_NAMES.slice(1).reverse().map(function (name, i) {
+      return '<span><i class="dot" style="background:' + SEV_COLORS[4 - i] + '"></i>' + name.charAt(0) + name.slice(1).toLowerCase() + '</span>';
+    }).join('') + '<span><i class="dot" style="background:' + P.good + '"></i>No findings</span>' +
+      (DATA.meta && DATA.meta.score != null ? '<span>Health ' + DATA.meta.score + ' · grade ' + esc(DATA.meta.grade) + '</span>' : '');
+  } else {
+    legend.innerHTML = '<span><i style="background:var(--warn)"></i>Primary key</span><span><i style="background:var(--accent)"></i>Foreign key</span><span>Crow\'s foot = many &nbsp;·&nbsp; bar = one</span>';
+  }
+}
+
+function fitTo(list) {
+  if (!list.length) return;
+  var x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  list.forEach(function (n) { x1 = Math.min(x1, n.x); y1 = Math.min(y1, n.y); x2 = Math.max(x2, n.x + n.w); y2 = Math.max(y2, n.y + n.h); });
+  var W = stage.clientWidth - (panel.style.display === 'block' ? 360 : 0), H = stage.clientHeight, top = 90, bottom = 80;
+  var k = Math.min((W - 120) / Math.max(x2 - x1, 1), (H - top - bottom) / Math.max(y2 - y1, 1), 1.2);
+  view.k = Math.max(0.05, k);
+  view.x = (W - (x2 - x1) * view.k) / 2 - x1 * view.k;
+  view.y = top + ((H - top - bottom) - (y2 - y1) * view.k) / 2 - y1 * view.k;
+  applyView();
 }
 
 function select(n) {
   selected = n;
+  if (mode && mode.kind !== 'rule') mode = null;
+  if (mode && n && !mode.ids[n.id]) mode = null;
   applyHighlight();
-  if (!n) { panel.style.display = 'none'; return; }
+  if (!n) { if (!mode) panel.style.display = 'none'; return; }
   panelBody.innerHTML = describe(n);
   panel.style.display = 'block';
+  wirePanel(n);
+}
+
+function wirePanel(n) {
   panelBody.querySelectorAll('[data-goto]').forEach(function (a) {
-    a.addEventListener('click', function () { var t = nodeById[a.getAttribute('data-goto')]; if (t) { select(t); focusOn(t); } });
+    a.addEventListener('click', function () { var t = nodeById[a.getAttribute('data-goto')]; if (t) { mode = null; select(t); focusOn(t); } });
   });
+  panelBody.querySelectorAll('[data-rule]').forEach(function (d) {
+    d.addEventListener('click', function () { showRule(d.getAttribute('data-rule')); });
+  });
+  panelBody.querySelectorAll('[data-section]').forEach(function (a) {
+    a.addEventListener('click', function () { host('section', REPORT.id + '|' + a.getAttribute('data-section')); });
+  });
+  if (!n) return;
+  panelBody.querySelectorAll('[data-act]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var act = b.getAttribute('data-act');
+      document.getElementById('impactOut').innerHTML = '';
+      document.getElementById('pathOut').innerHTML = '';
+      if (act === 'impact') {
+        var imp = showImpact(n);
+        document.getElementById('impactOut').innerHTML =
+          '<div class="note' + (imp.cascadedTables ? ' bad' : '') + '">' +
+          (imp.down.length ? '<b>' + imp.down.length + '</b> table(s) reference ' + esc(n.id) + ' directly or indirectly — deleting or changing its rows affects them' +
+            (imp.cascadedTables ? '; <b>' + imp.cascadedTables + '</b> of them lose rows automatically through ON DELETE CASCADE (red).' : '.') :
+            'No table references ' + esc(n.id) + '.') +
+          (imp.up.length ? '<br>It depends on <b>' + imp.up.length + '</b> table(s) (blue outline).' : '') + '</div>';
+      } else if (act === 'focus') {
+        showNeighbours(n);
+      } else if (act === 'ask') {
+        host('ask', n.id);
+      }
+    });
+  });
+  var go = document.getElementById('pathGo'), input = document.getElementById('pathTo');
+  var run = function () {
+    var target = nodeById[input.value.trim()] || nodes.filter(function (x) { return x.id.toLowerCase() === input.value.trim().toLowerCase(); })[0];
+    var out = document.getElementById('pathOut');
+    document.getElementById('impactOut').innerHTML = '';
+    if (!target) { out.innerHTML = '<div class="note">Pick a table from the list.</div>'; return; }
+    var res = showPath(n, target);
+    if (!res) { out.innerHTML = '<div class="note bad">' + esc(target.id) + ' is not connected to ' + esc(n.id) + ' through foreign keys.</div>'; return; }
+    out.innerHTML = '<div class="note">' + (res.path.length - 1) + ' join(s): ' + res.path.map(function (x) { return esc(x.id); }).join(' → ') + '</div>' +
+      '<pre class="sql">' + esc(res.sql) + '</pre><div class="acts"><button id="copySql">Copy SQL</button></div>';
+    document.getElementById('copySql').onclick = function () { copyText(res.sql); this.textContent = 'Copied'; };
+  };
+  if (go) go.onclick = run;
+  if (input) input.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') run(); });
 }
 
 function describe(n) {
   var t = n.t, h = '<h2>' + esc(t.n) + '</h2><div class="sub">' + (t.r != null ? '≈ ' + t.r.toLocaleString('en') + ' rows · ' : '') + t.c.length + ' columns</div>';
+  h += '<div class="acts"><button data-act="impact" title="What depends on this table, and what it depends on">Impact</button>' +
+       '<button data-act="focus" title="Show only the directly related tables">Neighbours</button>' +
+       (EMBEDDED ? '<button data-act="ask" title="Ask the AI about this table">Ask AI</button>' : '') + '</div><div id="impactOut"></div>';
+  if (t.f && t.f.length) {
+    h += '<h3>Findings (' + t.f.length + ')</h3>';
+    t.f.forEach(function (i) {
+      var r = RULES[i]; if (!r) return;
+      h += '<div class="fd" data-rule="' + esc(r.id) + '" title="Show every table with this finding"><span class="sev" style="background:' + sevColor(r.s) + '">' + SEV_NAMES[r.s] + '</span><b>' + esc(r.t) + '</b><small>' + esc(r.r) + '</small></div>';
+    });
+  }
+  if (t.m && t.m.length && REPORT.s) {
+    h += '<h3>In the AI report</h3>';
+    t.m.forEach(function (i) { h += '<div class="rel">' + (EMBEDDED ? '<a data-section="' + i + '">' + esc(REPORT.s[i]) + '</a>' : esc(REPORT.s[i])) + '</div>'; });
+  }
+  h += '<h3>Join path</h3><div class="row"><input id="pathTo" list="tableList" placeholder="Join ' + esc(t.n) + ' to…" autocomplete="off"><button id="pathGo">Find</button></div><div id="pathOut"></div>';
   h += '<h3>Columns</h3><table>';
   t.c.forEach(function (c) {
     var tags = (c.pk ? '<span class="pill pk">PK</span>' : '') + (c.fk ? '<span class="pill fk">FK</span>' : '') + (c.id ? '<span class="pill id">AUTO</span>' : '') + (c.nn ? '<span class="pill nn">NOT NULL</span>' : '');
@@ -531,7 +818,13 @@ document.getElementById('bCols').onclick = function () {
   measure(); removeOverlaps(nodes, 40, 50); render(); fit();
 };
 document.getElementById('bLayout').onclick = function () { layout(); render(); fit(); };
-document.getElementById('close').onclick = function () { select(null); };
+document.getElementById('close').onclick = function () { mode = null; select(null); panel.style.display = 'none'; };
+document.getElementById('bHealth').onclick = function () { setLens(!lens); host('lens', lens ? 'on' : 'off'); };
+document.getElementById('bannerClear').onclick = function () { setMode(null); };
+document.addEventListener('keydown', function (ev) {
+  if (ev.key !== 'Escape') return;
+  if (mode) setMode(null); else { select(null); panel.style.display = 'none'; }
+});
 document.getElementById('bSvg').onclick = function () {
   var blob = new Blob([exportSvg()], { type: 'image/svg+xml' });
   var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = (DATA.meta.db || 'schema') + '-er-diagram.svg';
@@ -566,6 +859,13 @@ window.setTheme = function (theme) {
   P = readPalette(); render();
 };
 window.fitDiagram = fit;
+window.focusTable = function (name) {
+  var n = nodeById[name] || nodes.filter(function (x) { return x.id.toLowerCase() === String(name).toLowerCase(); })[0];
+  if (!n) return false;
+  mode = null; select(n); focusOn(n); return true;
+};
+window.showRule = showRule;
+window.setHealthLens = setLens;
 
 if (window.matchMedia) {
   var mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -577,7 +877,16 @@ window.addEventListener('resize', function () { /* keep current view */ });
 // ------------------------------------------------------------------ boot
 document.getElementById('stats').textContent = DATA.tables.length + ' tables · ' + (DATA.rels || []).length + ' relationships' + ((DATA.views || []).length ? ' · ' + DATA.views.length + ' views' : '');
 if (!DATA.tables.length) { document.getElementById('empty').style.display = 'flex'; return; }
-build(); layout(); render(); fit();
+document.getElementById('tableList').innerHTML = DATA.tables.map(function (t) { return '<option value="' + esc(t.n) + '">'; }).join('');
+if (DATA.meta && DATA.meta.score != null)
+  document.getElementById('stats').textContent += ' · health ' + DATA.meta.score + ' (' + DATA.meta.grade + ')';
+build(); layout();
+var init = DATA.init || {};
+lens = !!init.health && RULES.length > 0;
+document.getElementById('bHealth').classList.toggle('on', lens);
+renderLegend(); render(); fit();
+if (init.rule) showRule(init.rule);
+else if (init.table) window.focusTable(init.table);
 })();
 </script>
 </body>

@@ -66,8 +66,12 @@
             <Border Grid.Row="0" StyleClass="Glass" Padding="14,10">
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
                     <Button Grid.Column="0" Text="‹  Reports" StyleClass="Small" Command="{Binding CloseViewerCommand}" />
-                    <Label Grid.Column="1" Text="{Binding ViewerTitle}" StyleClass="Headline" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                    <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                        <Label Text="{Binding ViewerTitle}" StyleClass="Headline" LineBreakMode="TailTruncation" />
+                        <Label Text="Table names link to the ER diagram" StyleClass="Caption" IsVisible="{Binding IsLinked}" />
+                    </VerticalStackLayout>
                     <HorizontalStackLayout Grid.Column="2" Spacing="8">
+                        <Button Text="Diagram" StyleClass="Small" Command="{Binding OpenDiagramCommand}" IsVisible="{Binding IsLinked}" />
                         <Button Text="PDF" StyleClass="Primary,Small" Command="{Binding ExportPdfCommand}" />
                         <Button Text="Markdown" StyleClass="Small" Command="{Binding ExportMarkdownCommand}" />
                         <Button Text="HTML" StyleClass="Small" Command="{Binding ExportHtmlCommand}" />

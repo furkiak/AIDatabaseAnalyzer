@@ -38,7 +38,7 @@ public partial class ReportsViewModel : ObservableObject
         _dialogs = dialogs;
 
         _session.ReportSaved += reportId => { _ = RefreshAsync(); };
-        _session.ReportOpenRequested += id => _ = OpenByIdAsync(id);
+        _session.ReportOpenRequested += (id, section) => _ = OpenByIdAsync(id, section);
         _session.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(WorkspaceSession.CurrentSection) && _session.CurrentSection == AppSection.Reports)
@@ -58,6 +58,9 @@ public partial class ReportsViewModel : ObservableObject
     [ObservableProperty] private bool hasItems;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string folderText = "";
+
+    /// <summary>The open report belongs to the loaded database: table names link to the diagram.</summary>
+    [ObservableProperty] private bool isLinked;
 
     public bool IsListVisible => !IsViewing;
     public bool IsEmptyVisible => !HasItems;
@@ -80,7 +83,7 @@ public partial class ReportsViewModel : ObservableObject
         }
     }
 
-    private async Task OpenByIdAsync(string id)
+    private async Task OpenByIdAsync(string id, int? section = null)
     {
         IsBusy = true;
         try
@@ -96,7 +99,16 @@ public partial class ReportsViewModel : ObservableObject
             _current = report;
             ViewerTitle = $"{report.DatabaseName} · {report.GeneratedAtUtc.ToLocalTime():g}";
             string theme = _theme.EffectiveTheme;
-            ViewerHtml = await Task.Run(() => ReportRenderer.ToHtml(report, theme));
+
+            // When the report belongs to the loaded schema, table names become links into the ER diagram.
+            var schema = _session.Schema is { } loaded && loaded.DatabaseName == report.DatabaseName ? loaded : null;
+            if (schema is not null && (_session.LatestReport is null || _session.LatestReport.GeneratedAtUtc <= report.GeneratedAtUtc))
+                _session.LatestReport = report;
+            Func<string, string?> link = token =>
+                schema is not null && SchemaLinks.ResolveTable(token, schema) is { } table ? "aida://table/" + Uri.EscapeDataString(table) : null;
+
+            ViewerHtml = await Task.Run(() => ReportRenderer.ToHtml(report, theme, link, section));
+            IsLinked = schema is not null;
             IsViewing = true;
         }
         finally
@@ -112,6 +124,25 @@ public partial class ReportsViewModel : ObservableObject
         await RefreshAsync();
         _notices.Show("Report deleted.", NoticeKind.Info);
     }
+
+    /// <summary>Handles "aida://" links of the report page.</summary>
+    public async Task HandleLinkAsync(string command, string argument)
+    {
+        switch (command)
+        {
+            case "table":
+                if (!_session.ShowInDiagram(argument))
+                    _notices.Show("Connect to this database and extract its schema to open the diagram.", NoticeKind.Info);
+                break;
+            case "copy":
+                await Clipboard.Default.SetTextAsync(argument);
+                _notices.Show("Copied to the clipboard.", NoticeKind.Success);
+                break;
+        }
+    }
+
+    [RelayCommand]
+    private void OpenDiagram() => _session.ShowInDiagram();
 
     [RelayCommand]
     private void CloseViewer()
