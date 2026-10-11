@@ -33,6 +33,9 @@ public sealed class Finding
 
     /// <summary>Total number of affected objects (can be larger than <see cref="Objects"/>).</summary>
     public int Count { get; init; }
+
+    /// <summary>Full names of every affected table (not shortened), used to colour and filter the ER diagram.</summary>
+    public IReadOnlyList<string> Tables { get; init; } = Array.Empty<string>();
 }
 
 public sealed class SchemaInsights

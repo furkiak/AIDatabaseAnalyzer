@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:AIDatabaseAnalyzer.ViewModels"
+             xmlns:ctl="clr-namespace:AIDatabaseAnalyzer.Controls"
+             x:Class="AIDatabaseAnalyzer.Views.SnapshotsView"
+             x:DataType="vm:SnapshotsViewModel">
+
+    <Grid>
+        <!-- ============================ History ============================ -->
+        <ScrollView IsVisible="{Binding IsListVisible}">
+            <VerticalStackLayout x:Name="Column" WidthRequest="700" Spacing="20" Padding="0,30,0,40" HorizontalOptions="Center">
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Snapshots" StyleClass="LargeTitle" />
+                    <Label Text="Every extraction is kept as a version of the schema (without row data). Compare versions to see what changed, and follow the health score over time." StyleClass="Subtitle" />
+                </VerticalStackLayout>
+
+                <Border StyleClass="Glass" IsVisible="{Binding HasSchema}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Border Grid.Column="0" StyleClass="Field">
+                            <Entry Text="{Binding SnapshotLabel}" Placeholder="Label for a manual snapshot, e.g. “before release 4.2” (optional)" />
+                        </Border>
+                        <Button Grid.Column="1" Text="Take snapshot" StyleClass="Primary" Command="{Binding TakeSnapshotCommand}" />
+                    </Grid>
+                </Border>
+
+                <Border StyleClass="Glass" IsVisible="{Binding HasTrend}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Health over time" StyleClass="Title" />
+                        <Label Text="{Binding TrendText}" StyleClass="Caption" />
+                        <ctl:TrendChart Points="{Binding Trend}" HeightRequest="130" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border StyleClass="Glass">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Versions" StyleClass="Title" />
+                        <Label Text="No snapshots yet — extract a schema on the Scope page and it is saved here automatically." StyleClass="Body" IsVisible="{Binding IsEmpty}" />
+                        <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Items}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SnapshotItem">
+                                    <Border StyleClass="Inset" Padding="14,10">
+                                        <Grid ColumnDefinitions="46,*,Auto" ColumnSpacing="14">
+                                            <Border Grid.Column="0" WidthRequest="42" HeightRequest="42" StrokeThickness="0" BackgroundColor="{Binding ScoreColor}" VerticalOptions="Center">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="21" />
+                                                </Border.StrokeShape>
+                                                <Label Text="{Binding ScoreText}" TextColor="White" FontAttributes="Bold" HorizontalOptions="Center" VerticalOptions="Center" />
+                                            </Border>
+                                            <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                                                <Label Text="{Binding Title}" StyleClass="Headline" LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding Subtitle}" StyleClass="Caption" LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding Details}" StyleClass="Caption" />
+                                            </VerticalStackLayout>
+                                            <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+                                                <Button Text="vs live" StyleClass="Small" Command="{Binding CompareLiveCommand}" IsVisible="{Binding CanCompareLive}" />
+                                                <Button Text="vs previous" StyleClass="Small" Command="{Binding ComparePreviousCommand}" />
+                                                <Button Text="✕" StyleClass="Danger,Small" WidthRequest="34" Padding="0" Command="{Binding DeleteCommand}" />
+                                            </HorizontalStackLayout>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                        <Label Text="{Binding FolderText}" StyleClass="Caption" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- ============================ Changes ============================ -->
+        <Grid IsVisible="{Binding HasDiff}" RowDefinitions="Auto,*" RowSpacing="14" Padding="0,26,0,6">
+            <Border Grid.Row="0" StyleClass="Glass" Padding="14,10">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Button Grid.Column="0" Text="‹  Snapshots" StyleClass="Small" Command="{Binding CloseDiffCommand}" />
+                    <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                        <Label Text="{Binding DiffTitle}" StyleClass="Headline" LineBreakMode="TailTruncation" />
+                        <Label Text="{Binding DiffSummary}" StyleClass="Caption" LineBreakMode="TailTruncation" />
+                    </VerticalStackLayout>
+                    <HorizontalStackLayout Grid.Column="2" Spacing="8">
+                        <Button Text="Review with AI" StyleClass="Primary,Small" Command="{Binding ReviewWithAiCommand}" />
+                        <Button Text="Copy" StyleClass="Small" Command="{Binding CopyDiffCommand}" />
+                        <Button Text="Save .md" StyleClass="Small" Command="{Binding SaveDiffCommand}" />
+                    </HorizontalStackLayout>
+                </Grid>
+            </Border>
+            <Border Grid.Row="1" StyleClass="Glass" Padding="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="14" />
+                </Border.StrokeShape>
+                <WebView x:Name="Changes" BackgroundColor="Transparent">
+                    <WebView.Source>
+                        <HtmlWebViewSource Html="{Binding DiffHtml}" />
+                    </WebView.Source>
+                </WebView>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentView>

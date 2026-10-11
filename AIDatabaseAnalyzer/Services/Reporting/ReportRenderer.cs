@@ -53,8 +53,18 @@ public static class ReportRenderer
         return sb.ToString();
     }
 
+    /// <summary>In-app helpers: copy buttons on code blocks (through the host) and the initial scroll position.</summary>
+    private static string AppScript(int? section) =>
+        "<script>(function(){document.querySelectorAll('.md pre').forEach(function(pre){var b=document.createElement('button');" +
+        "b.className='copy';b.textContent='Copy';b.onclick=function(){var c=pre.querySelector('code'),a=document.createElement('a');" +
+        "a.href='aida://copy/'+encodeURIComponent(c?c.innerText:pre.innerText);document.body.appendChild(a);a.click();a.remove();b.textContent='Copied';};pre.appendChild(b);});" +
+        (section is { } index ? $"var s=document.getElementById('s{index + 1}');if(s)s.scrollIntoView();" : "") +
+        "})();</script>";
+
     /// <param name="theme">"auto", "light" or "dark".</param>
-    public static string ToHtml(AnalysisReport report, string theme = "auto")
+    /// <param name="objectLink">In the app: turns table names into links to the ER diagram and adds copy buttons to code blocks.</param>
+    /// <param name="scrollToSection">In the app: index of the section to show first.</param>
+    public static string ToHtml(AnalysisReport report, string theme = "auto", Func<string, string?>? objectLink = null, int? scrollToSection = null)
     {
         var body = new StringBuilder();
         var toc = new StringBuilder();
@@ -76,7 +86,13 @@ public static class ReportRenderer
                 if (f.Objects.Count > 0)
                 {
                     body.Append("<ul class=\"objects\">");
-                    foreach (var o in f.Objects.Take(12)) body.Append($"<li><code>{WebUtility.HtmlEncode(o)}</code></li>");
+                    foreach (var o in f.Objects.Take(12))
+                    {
+                        string code = $"<code>{WebUtility.HtmlEncode(o)}</code>";
+                        body.Append(objectLink?.Invoke(o) is { } href
+                            ? $"<li><a class=\"obj\" href=\"{WebUtility.HtmlEncode(href)}\">{code}</a></li>"
+                            : $"<li>{code}</li>");
+                    }
                     body.Append("</ul>");
                 }
                 body.Append($"<p class=\"reco\"><strong>Recommendation:</strong> {WebUtility.HtmlEncode(f.Recommendation)}</p></article>");
@@ -92,7 +108,7 @@ public static class ReportRenderer
             body.Append($"<section class=\"card{(section.IsError ? " error" : "")}\" id=\"{id}\">");
             body.Append($"<h2>{WebUtility.HtmlEncode(section.Title)}</h2>");
             if (!string.IsNullOrEmpty(section.Category)) body.Append($"<span class=\"tag\">{WebUtility.HtmlEncode(section.Category)}</span>");
-            body.Append("<div class=\"md\">").Append(MarkdownHtmlRenderer.Render(section.Content)).Append("</div></section>");
+            body.Append("<div class=\"md\">").Append(MarkdownHtmlRenderer.Render(section.Content, codeLink: objectLink)).Append("</div></section>");
         }
 
         string scoreColor = report.HealthScore >= 80 ? "var(--good)" : report.HealthScore >= 55 ? "var(--warn)" : "var(--bad)";
@@ -105,6 +121,7 @@ public static class ReportRenderer
             report.EngineName,
             $"{report.TableCount} tables",
             $"{report.Provider} · {report.Model}",
+            report.UsageText,
             report.GeneratedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
         }.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => $"<span class=\"chip\">{WebUtility.HtmlEncode(c)}</span>"));
 
@@ -119,7 +136,8 @@ public static class ReportRenderer
             .Replace("{{CHIPS}}", chips)
             .Replace("{{RING}}", ring)
             .Replace("{{TOC}}", toc.ToString())
-            .Replace("{{BODY}}", body.ToString());
+            .Replace("{{BODY}}", body.ToString())
+            .Replace("</body>", (objectLink is null ? "" : AppScript(scrollToSection)) + "</body>");
     }
 
     private const string Template = """
@@ -167,6 +185,9 @@ public static class ReportRenderer
         th{background:var(--code-bg);font-weight:700;white-space:nowrap} tr:last-child td{border-bottom:none}
         hr{border:none;border-top:1px solid var(--line);margin:18px 0}
         a{color:var(--accent)}
+        a.obj{text-decoration:none} a.obj code{color:var(--accent);box-shadow:inset 0 -1.5px 0 var(--accent-soft)} a.obj:hover code{background:var(--accent-soft)}
+        .md pre{position:relative} .copy{position:absolute;top:8px;right:8px;border:1px solid var(--line);background:var(--glass-strong);color:var(--text-2);border-radius:9px;padding:3px 10px;font:600 11.5px {{FONT}};cursor:pointer}
+        .copy:hover{color:var(--accent)}
         section.error{border-color:var(--bad)}
         .finding{border-top:1px solid var(--line);padding:14px 0 4px}
         .finding-head{display:flex;gap:10px;align-items:center} .finding-head h3{margin:0}

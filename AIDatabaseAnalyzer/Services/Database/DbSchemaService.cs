@@ -2,13 +2,16 @@ using System.Data;
 using System.Data.Common;
 using System.Globalization;
 using AIDatabaseAnalyzer.Models;
+using System.Diagnostics;
 using Microsoft.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using MySqlConnector;
 using Npgsql;
+using Oracle.ManagedDataAccess.Client;
 
 namespace AIDatabaseAnalyzer.Services.Database;
 
-/// <summary>Reads database metadata (and optional sample rows) from SQL Server, PostgreSQL and MySQL/MariaDB.</summary>
+/// <summary>Reads database metadata (and optional sample rows) from SQL Server, PostgreSQL, MySQL/MariaDB, Oracle and SQLite.</summary>
 public sealed class DbSchemaService : IDbSchemaService
 {
     private const int MaxSampledColumns = 50;
@@ -60,6 +63,31 @@ public sealed class DbSchemaService : IDbSchemaService
                 return b.ConnectionString;
             }
 
+            case DbEngine.Oracle:
+            {
+                var b = new OracleConnectionStringBuilder
+                {
+                    DataSource = OracleDataSource(s),
+                    UserID = s.Username,
+                    Password = s.Password,
+                    ConnectionTimeout = timeout
+                };
+                return b.ConnectionString;
+            }
+
+            case DbEngine.Sqlite:
+            {
+                // Read-only and unpooled: the file is never modified and not kept open after the analysis.
+                var b = new SqliteConnectionStringBuilder
+                {
+                    DataSource = s.Server.Trim(),
+                    Mode = SqliteOpenMode.ReadOnly,
+                    Pooling = false,
+                    DefaultTimeout = 30
+                };
+                return b.ConnectionString;
+            }
+
             default:
             {
                 var b = new MySqlConnectionStringBuilder
@@ -78,6 +106,16 @@ public sealed class DbSchemaService : IDbSchemaService
         }
     }
 
+    /// <summary>"host:port/service" (EZConnect), or the server field as-is when it already is a descriptor or a full address.</summary>
+    internal static string OracleDataSource(ConnectionSettings s)
+    {
+        string server = s.Server.Trim();
+        if (server.Contains('(') || server.Contains('/') || server.Contains("://", StringComparison.Ordinal)) return server;
+        int port = s.Port is > 0 ? s.Port.Value : 1521;
+        string service = string.IsNullOrWhiteSpace(s.ServiceName) ? "FREEPDB1" : s.ServiceName.Trim();
+        return $"{server}:{port}/{service}";
+    }
+
     private static DbConnection CreateConnection(ConnectionSettings s, string? database)
     {
         string cs = BuildConnectionString(s, database);
@@ -85,16 +123,28 @@ public sealed class DbSchemaService : IDbSchemaService
         {
             DbEngine.SqlServer => new SqlConnection(cs),
             DbEngine.PostgreSql => new NpgsqlConnection(cs),
+            DbEngine.Oracle => new OracleConnection(cs),
+            DbEngine.Sqlite => new SqliteConnection(cs),
             _ => new MySqlConnection(cs)
         };
     }
 
     private static async Task<DbConnection> OpenAsync(ConnectionSettings s, string? database, CancellationToken ct)
     {
+        if (s.Engine == DbEngine.Sqlite && !File.Exists(s.Server.Trim()))
+            throw new FileNotFoundException($"The database file “{s.Server}” does not exist.");
+
         var conn = CreateConnection(s, database);
         try
         {
             await conn.OpenAsync(ct).ConfigureAwait(false);
+
+            // Oracle has no "database" per connection: point the session at the chosen schema so the catalog queries see it.
+            if (s.Engine == DbEngine.Oracle && !string.IsNullOrWhiteSpace(database))
+                await ExecuteAsync(conn, "ALTER SESSION SET CURRENT_SCHEMA = " + SqlCatalog.Quote(DbEngine.Oracle, database), ct).ConfigureAwait(false);
+            if (s.Engine == DbEngine.Sqlite)
+                await ExecuteAsync(conn, "PRAGMA query_only = ON", ct).ConfigureAwait(false);
+
             return conn;
         }
         catch
@@ -108,6 +158,14 @@ public sealed class DbSchemaService : IDbSchemaService
 
     public async Task<IReadOnlyList<string>> GetDatabasesAsync(ConnectionSettings connection, CancellationToken ct = default)
     {
+        if (connection.Engine == DbEngine.Sqlite)
+        {
+            // A SQLite file is exactly one database; open it once to prove it is a valid database file.
+            await using var file = await OpenAsync(connection, null, ct).ConfigureAwait(false);
+            await ExecuteAsync(file, "SELECT COUNT(*) FROM sqlite_master", ct).ConfigureAwait(false);
+            return new[] { SqliteDatabaseName(connection) };
+        }
+
         DbConnection conn;
         try
         {
@@ -146,8 +204,14 @@ public sealed class DbSchemaService : IDbSchemaService
             });
         }, ct).ConfigureAwait(false);
 
+        if (connection.Engine == DbEngine.Sqlite)
+            await CountSqliteRowsAsync(conn, tables, ct).ConfigureAwait(false);
         return tables;
     }
+
+    /// <summary>The file name stands in for the database name of a SQLite file.</summary>
+    public static string SqliteDatabaseName(ConnectionSettings connection) =>
+        Path.GetFileNameWithoutExtension(connection.Server.Trim()) is { Length: > 0 } name ? name : "main";
 
     // ------------------------------------------------------------------ extraction
 
@@ -160,7 +224,17 @@ public sealed class DbSchemaService : IDbSchemaService
     {
         var engine = connection.Engine;
         string? defaultSchema = engine.DefaultSchema();
-        var schema = new DatabaseSchema { DatabaseName = database, Engine = engine, IndexesIncluded = options.IncludeIndexes };
+        var schema = new DatabaseSchema
+        {
+            DatabaseName = database,
+            Engine = engine,
+            IndexesIncluded = options.IncludeIndexes,
+            ViewsIncluded = options.IncludeViews,
+            TriggersIncluded = options.IncludeTriggers,
+            RoutinesIncluded = options.IncludeRoutines,
+            ConstraintsIncluded = options.IncludeConstraints,
+            DefinitionsIncluded = options.IncludeDefinitions
+        };
 
         await using var conn = await OpenAsync(connection, database, ct).ConfigureAwait(false);
         schema.ServerVersion = conn.ServerVersion;
@@ -171,16 +245,27 @@ public sealed class DbSchemaService : IDbSchemaService
         await ReadRowsAsync(conn, SqlCatalog.Tables(engine), r =>
         {
             var table = new TableInfo { Schema = r.Str(0), Name = r.Str(1) ?? "", RowCount = r.Long(2), DefaultSchema = defaultSchema };
-            if (options.SelectedTables is not null && !options.SelectedTables.Contains(table.FullName)) return;
+            if (options.SelectedTables is not null && !options.SelectedTables.Contains(table.FullName))
+            {
+                schema.IsPartial = true;
+                return;
+            }
             byKey[Key(table.Schema, table.Name)] = table;
             schema.Tables.Add(table);
         }, ct).ConfigureAwait(false);
+
+        if (engine == DbEngine.Sqlite)
+            await CountSqliteRowsAsync(conn, schema.Tables, ct).ConfigureAwait(false);
 
         // --- columns (required)
         progress?.Report("Reading columns…");
         await ReadRowsAsync(conn, SqlCatalog.Columns(engine), r =>
         {
             if (!byKey.TryGetValue(Key(r.Str(0), r.Str(1) ?? ""), out var table)) return;
+            bool identity = r.Bool(7);
+            string? defaultValue = NormalizeDefault(r.Str(8));
+            // The sequence behind an identity column ("ISEQ$$_73345".nextval, nextval('t_id_seq')) is noise.
+            if (identity && defaultValue?.Contains("nextval", StringComparison.OrdinalIgnoreCase) == true) defaultValue = null;
             table.Columns.Add(new ColumnInfo
             {
                 Name = r.Str(2) ?? "",
@@ -188,8 +273,8 @@ public sealed class DbSchemaService : IDbSchemaService
                 DataType = Shorten(r.Str(4) ?? r.Str(3) ?? "", 120) ?? "",
                 MaxLength = r.Long(5),
                 IsNullable = r.Bool(6),
-                IsIdentity = r.Bool(7),
-                DefaultValue = NormalizeDefault(r.Str(8))
+                IsIdentity = identity,
+                DefaultValue = defaultValue
             });
         }, ct).ConfigureAwait(false);
 
@@ -332,7 +417,19 @@ public sealed class DbSchemaService : IDbSchemaService
         }
 
         // --- check constraints
-        if (options.IncludeConstraints)
+        if (options.IncludeConstraints && engine == DbEngine.Sqlite)
+        {
+            await TrySectionAsync(schema, "Constraints", async () =>
+            {
+                await ReadRowsAsync(conn, "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND sql IS NOT NULL", r =>
+                {
+                    if (!byKey.TryGetValue(Key(null, r.Str(0) ?? ""), out var table)) return;
+                    foreach (var (name, expression) in SqlCatalog.ParseSqliteChecks(r.Str(1) ?? ""))
+                        schema.Constraints.Add(new ConstraintInfo { Table = table.FullName, Name = name, Type = "CHECK", Definition = Shorten(expression, 400) });
+                }, ct).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+        }
+        else if (options.IncludeConstraints)
         {
             progress?.Report("Reading constraints…");
             await TrySectionAsync(schema, "Constraints", async () =>
@@ -357,6 +454,18 @@ public sealed class DbSchemaService : IDbSchemaService
 
         progress?.Report("Done.");
         return schema;
+    }
+
+    /// <summary>SQLite keeps no row statistics; count the rows, but give up after a few seconds on very large files.</summary>
+    private static async Task CountSqliteRowsAsync(DbConnection conn, IEnumerable<TableInfo> tables, CancellationToken ct)
+    {
+        var budget = Stopwatch.StartNew();
+        foreach (var table in tables)
+        {
+            if (budget.Elapsed > TimeSpan.FromSeconds(8)) break;
+            await ReadRowsAsync(conn, $"SELECT COUNT(*) FROM {SqlCatalog.QuoteTable(DbEngine.Sqlite, table)}", r => table.RowCount = r.Long(0), ct)
+                .ConfigureAwait(false);
+        }
     }
 
     // ------------------------------------------------------------------ sample rows
@@ -436,6 +545,8 @@ public sealed class DbSchemaService : IDbSchemaService
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
         cmd.CommandTimeout = timeoutSeconds;
+        // Oracle returns defaults and trigger bodies as LONG; fetch them completely in the first round trip.
+        if (cmd is OracleCommand oracle) oracle.InitialLONGFetchSize = -1;
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
             onRow(reader);
@@ -532,6 +643,8 @@ internal static class DbReaderExtensions
         return v switch
         {
             bool b => b,
+            decimal m => m != 0, // Oracle NUMBER
+            double d => d != 0,
             byte or sbyte or short or ushort or int or uint or long or ulong => Convert.ToInt64(v, CultureInfo.InvariantCulture) != 0,
             string s => s is "1" or "t" or "T" or "true" or "True" or "TRUE" or "YES" or "yes" or "Y",
             _ => false

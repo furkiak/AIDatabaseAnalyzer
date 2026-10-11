@@ -38,6 +38,24 @@ public sealed class AnalysisReport
     public List<ReportFinding> Findings { get; set; } = new();
     public List<ReportSection> Sections { get; set; } = new();
 
+    /// <summary>Tokens reported by the provider for the whole run (0 for reports created by older versions).</summary>
+    public long InputTokens { get; set; }
+    public long OutputTokens { get; set; }
+    public long CachedInputTokens { get; set; }
+    public double DurationSeconds { get; set; }
+
     public string Title => $"{DatabaseName} — Analysis Report";
     public int FailedSections => Sections.Count(s => s.IsError);
+
+    public string UsageText
+    {
+        get
+        {
+            if (InputTokens == 0 && OutputTokens == 0) return "";
+            static string K(long t) => t >= 1_000_000 ? $"{t / 1_000_000d:0.#}M" : t >= 1_000 ? $"{t / 1_000d:0.#}k" : t.ToString();
+            string cached = CachedInputTokens > 0 && InputTokens > 0 ? $" ({(double)CachedInputTokens / InputTokens:P0} from cache)" : "";
+            string time = DurationSeconds > 0 ? $" · {TimeSpan.FromSeconds(DurationSeconds):m\\:ss} min" : "";
+            return $"{K(InputTokens)} input{cached} · {K(OutputTokens)} output tokens{time}";
+        }
+    }
 }

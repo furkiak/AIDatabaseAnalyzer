@@ -12,7 +12,7 @@
 
             <VerticalStackLayout Spacing="4">
                 <Label Text="Connect" StyleClass="LargeTitle" />
-                <Label Text="Sign in to a SQL Server, PostgreSQL or MySQL server. Nothing is changed — the analyzer only reads metadata." StyleClass="Subtitle" />
+                <Label Text="Sign in to SQL Server, PostgreSQL, MySQL / MariaDB or Oracle, or open a SQLite file. Nothing is changed — the analyzer only reads metadata." StyleClass="Subtitle" />
             </VerticalStackLayout>
 
             <Grid ColumnDefinitions="*,290" ColumnSpacing="20">
@@ -23,10 +23,45 @@
 
                         <VerticalStackLayout Spacing="8">
                             <Label Text="Database engine" StyleClass="FieldLabel" />
-                            <ctl:SegmentedControl Items="{Binding Engines}" SelectedIndex="{Binding SelectedEngineIndex, Mode=TwoWay}" />
+                            <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding EngineChips}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FilterChip">
+                                        <Border StyleClass="Pill" Margin="0,0,8,8">
+                                            <Border.Triggers>
+                                                <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource AccentGradient}" />
+                                                    <Setter Property="Stroke" Value="{StaticResource Transparent}" />
+                                                </DataTrigger>
+                                            </Border.Triggers>
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding SelectCommand}" />
+                                            </Border.GestureRecognizers>
+                                            <Label Text="{Binding Text}" FontSize="13" FontAttributes="Bold">
+                                                <Label.Triggers>
+                                                    <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                                        <Setter Property="TextColor" Value="White" />
+                                                    </DataTrigger>
+                                                </Label.Triggers>
+                                            </Label>
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
+                            <Label Text="{Binding EngineHint}" StyleClass="Caption" />
                         </VerticalStackLayout>
 
-                        <Grid ColumnDefinitions="*,120" ColumnSpacing="12">
+                        <!-- SQLite: a database file -->
+                        <VerticalStackLayout Spacing="6" IsVisible="{Binding IsSqlite}">
+                            <Label Text="Database file" StyleClass="FieldLabel" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Border Grid.Column="0" StyleClass="Field">
+                                    <Entry Text="{Binding Server}" Placeholder="{Binding ServerPlaceholder}" />
+                                </Border>
+                                <Button Grid.Column="1" Text="Browse…" StyleClass="Small" Command="{Binding BrowseFileCommand}" VerticalOptions="Center" />
+                            </Grid>
+                        </VerticalStackLayout>
+
+                        <Grid ColumnDefinitions="*,120" ColumnSpacing="12" IsVisible="{Binding IsServerBased}">
                             <VerticalStackLayout Grid.Column="0" Spacing="6">
                                 <Label Text="Server" StyleClass="FieldLabel" />
                                 <Border StyleClass="Field">
@@ -40,6 +75,13 @@
                                 </Border>
                             </VerticalStackLayout>
                         </Grid>
+
+                        <VerticalStackLayout Spacing="6" IsVisible="{Binding IsOracle}">
+                            <Label Text="Service name" StyleClass="FieldLabel" />
+                            <Border StyleClass="Field">
+                                <Entry Text="{Binding ServiceName}" Placeholder="FREEPDB1, ORCLPDB1, XEPDB1…" />
+                            </Border>
+                        </VerticalStackLayout>
 
                         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowIntegratedSecurity}">
                             <VerticalStackLayout Spacing="2">
@@ -64,7 +106,7 @@
                             </VerticalStackLayout>
                         </Grid>
 
-                        <Grid ColumnDefinitions="*,Auto">
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowTrustCertificate}">
                             <VerticalStackLayout Spacing="2">
                                 <Label Text="Trust server certificate" StyleClass="Headline" />
                                 <Label Text="Convenient for local development servers with self-signed certificates. Turn off for production." StyleClass="Caption" />
@@ -91,7 +133,7 @@
                                 </Border>
                                 <Button Grid.Column="1" Text="Save" StyleClass="Small" Command="{Binding SaveProfileCommand}" />
                             </Grid>
-                            <HorizontalStackLayout Spacing="10">
+                            <HorizontalStackLayout Spacing="10" IsVisible="{Binding IsServerBased}">
                                 <Switch IsToggled="{Binding RememberPassword}" VerticalOptions="Center" />
                                 <Label Text="Remember the password (kept in the system keychain / credential store)" StyleClass="Caption" VerticalOptions="Center" />
                             </HorizontalStackLayout>

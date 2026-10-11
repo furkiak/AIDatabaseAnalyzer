@@ -28,10 +28,15 @@ public partial class InsightsViewModel : ObservableObject
         _files = files;
         _notices = notices;
         _session.SchemaChanged += Rebuild;
+        _session.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(WorkspaceSession.DriftSummary)) UpdateDrift();
+        };
         Rebuild();
     }
 
     public ObservableCollection<FindingItem> Findings { get; } = new();
+    public ObservableCollection<HotSpotItem> HotSpots { get; } = new();
     public ObservableCollection<FilterChip> SeverityChips { get; } = new();
     public ObservableCollection<string> Warnings { get; } = new();
 
@@ -60,6 +65,10 @@ public partial class InsightsViewModel : ObservableObject
     [ObservableProperty] private bool hasWarnings;
     [ObservableProperty] private bool hasSkipped;
     [ObservableProperty] private string skippedText = "";
+    [ObservableProperty] private bool hasHotSpots;
+    [ObservableProperty] private string fixScriptText = "";
+    [ObservableProperty] private bool hasDrift;
+    [ObservableProperty] private string driftText = "";
 
     public bool HasTokenIssue => IsTokenWarning || IsTokenDanger;
     public bool IsTokenOk => !HasTokenIssue;
@@ -74,6 +83,9 @@ public partial class InsightsViewModel : ObservableObject
         Findings.Clear();
         SeverityChips.Clear();
         Warnings.Clear();
+        HotSpots.Clear();
+        HasHotSpots = false;
+        UpdateDrift();
 
         if (schema is null || insights is null)
         {
@@ -94,7 +106,13 @@ public partial class InsightsViewModel : ObservableObject
         Grade = insights.Grade;
         Headline = insights.Headline;
 
-        foreach (var finding in insights.Findings) _allFindings.Add(new FindingItem(finding));
+        foreach (var finding in insights.Findings)
+            _allFindings.Add(new FindingItem(finding, item => _session.ShowInDiagram(ruleId: item.Finding.RuleId), AskAboutFinding));
+        BuildHotSpots(insights);
+        var fix = FixScriptBuilder.Build(schema);
+        FixScriptText = fix.Statements + fix.Suggestions == 0
+            ? "Nothing to fix mechanically: every foreign key has an index and every table has a key."
+            : $"{fix.Statements} ready-to-run statement(s) for missing foreign key indexes and {fix.Suggestions} commented suggestion(s) for redundant indexes and missing keys, in {schema.Engine.DisplayName()} syntax.";
         HasFindings = _allFindings.Count > 0;
         NoFindings = !HasFindings;
 
@@ -113,6 +131,39 @@ public partial class InsightsViewModel : ObservableObject
 
         UpdateTokenInfo();
         BuildPreview(schema);
+    }
+
+    /// <summary>Tables ranked by the weight of their findings (critical counts most), the first places to look at.</summary>
+    private void BuildHotSpots(SchemaInsights insights)
+    {
+        var weight = new Dictionary<string, (double Score, int Count, FindingSeverity Worst)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var f in insights.Findings.Where(f => f.Severity >= FindingSeverity.Low))
+        {
+            double w = f.Severity switch { FindingSeverity.Critical => 8, FindingSeverity.High => 4, FindingSeverity.Medium => 2, _ => 1 };
+            foreach (string table in f.Tables)
+            {
+                var current = weight.TryGetValue(table, out var v) ? v : (0, 0, FindingSeverity.Info);
+                weight[table] = (current.Score + w, current.Count + 1, f.Severity > current.Worst ? f.Severity : current.Worst);
+            }
+        }
+
+        foreach (var (table, v) in weight.OrderByDescending(x => x.Value.Score).ThenBy(x => x.Key).Take(8))
+            HotSpots.Add(new HotSpotItem(table, v.Count, v.Worst, item => _session.ShowInDiagram(item.Table)));
+        HasHotSpots = HotSpots.Count > 0;
+    }
+
+    private void AskAboutFinding(FindingItem item)
+    {
+        var f = item.Finding;
+        string objects = string.Join(", ", f.Objects.Take(10));
+        _session.Ask($"The automated review reported “{f.Title}” ({f.Severity}) for: {objects}. " +
+                     "Explain why it matters for this database, which of these objects to fix first, and give the SQL to fix them safely.");
+    }
+
+    private void UpdateDrift()
+    {
+        DriftText = _session.DriftSummary ?? "";
+        HasDrift = DriftText.Length > 0;
     }
 
     private void AddChip(string key, string label, int count, bool selected) =>
@@ -164,7 +215,26 @@ public partial class InsightsViewModel : ObservableObject
     private void TogglePreview() => IsPreviewVisible = !IsPreviewVisible;
 
     [RelayCommand]
-    private void Visualize() => _session.TryNavigate(AppSection.Diagram);
+    private void Visualize() => _session.ShowInDiagram();
+
+    [RelayCommand]
+    private void OpenSnapshots() => _session.TryNavigate(AppSection.Snapshots);
+
+    [RelayCommand]
+    private async Task CopyFixScriptAsync()
+    {
+        if (_session.Schema is not { } schema) return;
+        await Clipboard.Default.SetTextAsync(FixScriptBuilder.Build(schema).Sql);
+        _notices.Show("Fix script copied — review it before running.", NoticeKind.Success);
+    }
+
+    [RelayCommand]
+    private async Task SaveFixScriptAsync()
+    {
+        if (_session.Schema is not { } schema) return;
+        string? path = await _files.SaveTextAsync($"{schema.DatabaseName}-fix.sql", FixScriptBuilder.Build(schema).Sql);
+        if (path is not null) _notices.Show($"Fix script saved to {Path.GetFileName(path)}", NoticeKind.Success);
+    }
 
     [RelayCommand]
     private void Continue() => _session.TryNavigate(AppSection.Analysis);
@@ -194,7 +264,8 @@ public partial class InsightsViewModel : ObservableObject
     private async Task ExportDiagramAsync()
     {
         if (_session.Schema is not { } schema) return;
-        string html = await Task.Run(() => DiagramHtmlBuilder.Build(schema, "auto", embedded: false));
+        var context = new DiagramContext { Insights = _session.Insights, Report = _session.LatestReport is { } r && r.DatabaseName == schema.DatabaseName ? r : null };
+        string html = await Task.Run(() => DiagramHtmlBuilder.Build(schema, "auto", embedded: false, context: context));
         string? path = await _files.SaveTextAsync($"{schema.DatabaseName}-er-diagram.html", html);
         if (path is not null) _notices.Show($"Interactive diagram saved to {Path.GetFileName(path)}", NoticeKind.Success);
     }

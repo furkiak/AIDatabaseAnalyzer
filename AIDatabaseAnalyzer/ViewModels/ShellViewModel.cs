@@ -55,11 +55,13 @@ public partial class ShellViewModel : ObservableObject
         Scope = new NavItem(AppSection.Scope, "Scope", "nav_scope", Navigate);
         Insights = new NavItem(AppSection.Insights, "Insights", "nav_insights", Navigate);
         Analysis = new NavItem(AppSection.Analysis, "AI Analysis", "nav_analysis", Navigate);
+        Chat = new NavItem(AppSection.Chat, "Ask AI", "nav_chat", Navigate);
         ReportsItem = new NavItem(AppSection.Reports, "Reports", "nav_reports", Navigate);
+        SnapshotsItem = new NavItem(AppSection.Snapshots, "Snapshots", "nav_snapshots", Navigate);
         SettingsItem = new NavItem(AppSection.Settings, "Settings", "nav_settings", Navigate);
 
-        WorkflowItems = new[] { Connect, Scope, Insights, Analysis };
-        LibraryItems = new[] { ReportsItem, SettingsItem };
+        WorkflowItems = new[] { Connect, Scope, Insights, Analysis, Chat };
+        LibraryItems = new[] { ReportsItem, SnapshotsItem, SettingsItem };
 
         _session.PropertyChanged += (_, _) => Refresh();
         _session.SchemaChanged += Refresh;
@@ -72,7 +74,9 @@ public partial class ShellViewModel : ObservableObject
     public NavItem Scope { get; }
     public NavItem Insights { get; }
     public NavItem Analysis { get; }
+    public NavItem Chat { get; }
     public NavItem ReportsItem { get; }
+    public NavItem SnapshotsItem { get; }
     public NavItem SettingsItem { get; }
 
     public IReadOnlyList<NavItem> WorkflowItems { get; }
@@ -87,6 +91,8 @@ public partial class ShellViewModel : ObservableObject
     public bool IsReportsVisible => Current == AppSection.Reports;
     public bool IsSettingsVisible => Current == AppSection.Settings;
     public bool IsDiagramVisible => Current == AppSection.Diagram;
+    public bool IsChatVisible => Current == AppSection.Chat;
+    public bool IsSnapshotsVisible => Current == AppSection.Snapshots;
 
     private void Navigate(AppSection section) => _session.TryNavigate(section);
 
@@ -99,11 +105,13 @@ public partial class ShellViewModel : ObservableObject
         Scope.IsEnabled = _session.HasConnection;
         Insights.IsEnabled = _session.HasSchema;
         Analysis.IsEnabled = _session.HasSchema;
+        Chat.IsEnabled = _session.HasSchema;
 
         ReportsItem.Caption = _session.ReportCount == 0 ? "" : _session.ReportCount.ToString();
         Connect.Caption = _session.Connection is { } c ? Shorten(c.Server, 16) : "";
         Scope.Caption = _session.Schema is { } s ? $"{s.Tables.Count} tables" : _session.HasConnection ? $"{_session.Databases.Count} DBs" : "";
         Insights.Caption = _session.Insights is { } i ? $"{i.Score}/100" : "";
+        SnapshotsItem.Caption = string.IsNullOrEmpty(_session.DriftSummary) ? "" : "changed";
 
         OnPropertyChanged(nameof(Current));
         OnPropertyChanged(nameof(IsConnectVisible));
@@ -113,6 +121,8 @@ public partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsReportsVisible));
         OnPropertyChanged(nameof(IsSettingsVisible));
         OnPropertyChanged(nameof(IsDiagramVisible));
+        OnPropertyChanged(nameof(IsChatVisible));
+        OnPropertyChanged(nameof(IsSnapshotsVisible));
     }
 
     private static string Shorten(string text, int max) => text.Length <= max ? text : text[..(max - 1)] + "…";

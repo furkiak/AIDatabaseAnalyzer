@@ -9,11 +9,24 @@ namespace AIDatabaseAnalyzer.ViewModels;
 /// <summary>AI provider, models, appearance and privacy defaults.</summary>
 public partial class SettingsViewModel : ObservableObject
 {
+    /// <summary>Unsaved values of one provider; kept while the user switches between providers.</summary>
+    private sealed class Draft
+    {
+        public string Model = "";
+        public string ApiKey = "";
+        public string BaseUrl = "";
+        public string Context = "";
+    }
+
+    private static readonly int[] ParallelChoices = { 1, 2, 3, 4, 6, 8 };
+
     private readonly ISettingsService _settings;
     private readonly ILlmService _llm;
     private readonly IThemeService _theme;
     private readonly INoticeService _notices;
+    private readonly Dictionary<LlmProvider, Draft> _drafts = new();
     private CancellationTokenSource? _testCts;
+    private LlmProvider _provider;
     private bool _loaded;
 
     public SettingsViewModel(ISettingsService settings, ILlmService llm, IThemeService theme, INoticeService notices)
@@ -22,23 +35,45 @@ public partial class SettingsViewModel : ObservableObject
         _llm = llm;
         _theme = theme;
         _notices = notices;
+
+        foreach (var info in LlmProviders.All)
+            ProviderTiles.Add(new ChoiceTile((int)info.Provider, info.Label, info.Provider switch
+            {
+                LlmProvider.Ollama => "Local · private",
+                LlmProvider.OpenAICompatible => "Local or hosted",
+                _ => "Cloud · API key"
+            }, SelectProvider));
+
         _ = LoadAsync();
     }
 
-    public IReadOnlyList<string> Providers { get; } = new[] { "Local · Ollama", "Cloud · Gemini" };
+    public ObservableCollection<ChoiceTile> ProviderTiles { get; } = new();
     public IReadOnlyList<string> Themes { get; } = new[] { "System", "Light", "Dark" };
+    public IReadOnlyList<string> ParallelOptions { get; } = ParallelChoices.Select(n => n.ToString()).ToList();
 
     public ObservableCollection<string> AvailableModels { get; } = new();
+    public ObservableCollection<FilterChip> SuggestedModels { get; } = new();
 
-    [NotifyPropertyChangedFor(nameof(IsOllama))]
-    [NotifyPropertyChangedFor(nameof(IsGemini))]
-    [ObservableProperty] private int providerIndex;
+    // ------------------------------------------------------------------ provider fields
 
-    [ObservableProperty] private string ollamaUrl = "";
-    [ObservableProperty] private string ollamaModel = "";
-    [ObservableProperty] private string ollamaContext = "32768";
-    [ObservableProperty] private string geminiModel = "";
-    [ObservableProperty] private string geminiApiKey = "";
+    [ObservableProperty] private string providerTitle = "";
+    [ObservableProperty] private string privacyNote = "";
+    [ObservableProperty] private bool showApiKey;
+    [ObservableProperty] private bool showBaseUrl;
+    [ObservableProperty] private bool showContext;
+    [ObservableProperty] private bool showParallel;
+    [ObservableProperty] private bool hasSignupLink;
+    [ObservableProperty] private string signupText = "";
+    [ObservableProperty] private string apiKeyLabel = "API key";
+    [ObservableProperty] private string apiKeyPlaceholder = "";
+    [ObservableProperty] private string modelPlaceholder = "";
+    [ObservableProperty] private string baseUrlPlaceholder = "";
+
+    [ObservableProperty] private string model = "";
+    [ObservableProperty] private string apiKey = "";
+    [ObservableProperty] private string baseUrl = "";
+    [ObservableProperty] private string contextWindow = "32768";
+    [ObservableProperty] private int parallelIndex = 2;
     [ObservableProperty] private bool isKeyHidden = true;
 
     [ObservableProperty] private int themeIndex;
@@ -64,8 +99,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool hasSecretsNotice;
 
     public bool HasModels => AvailableModels.Count > 0;
-    public bool IsOllama => ProviderIndex == 0;
-    public bool IsGemini => ProviderIndex == 1;
+    public bool HasSuggestions => SuggestedModels.Count > 0;
 
     public string VersionText => $"Version {AppInfo.Current.VersionString} (build {AppInfo.Current.BuildString})";
 
@@ -73,25 +107,78 @@ public partial class SettingsViewModel : ObservableObject
     {
         await _settings.InitializeAsync();
 
-        ProviderIndex = _settings.Provider == LlmProvider.Gemini ? 1 : 0;
-        OllamaUrl = _settings.OllamaUrl;
-        OllamaModel = _settings.OllamaModel;
-        OllamaContext = _settings.OllamaContext.ToString();
-        GeminiModel = _settings.GeminiModel;
-        GeminiApiKey = _settings.GeminiApiKey;
+        foreach (var info in LlmProviders.All)
+        {
+            var p = info.Provider;
+            _drafts[p] = new Draft
+            {
+                Model = _settings.GetModel(p),
+                ApiKey = _settings.GetApiKey(p),
+                BaseUrl = _settings.GetBaseUrl(p),
+                Context = _settings.GetContextWindow(p).ToString()
+            };
+        }
+
+        int parallel = Array.IndexOf(ParallelChoices, _settings.MaxParallelRequests);
+        ParallelIndex = parallel >= 0 ? parallel : 2;
         ThemeIndex = (int)_settings.Theme;
         MaskSampleData = _settings.MaskSampleData;
-
         HasSecretsNotice = !_settings.SecretsArePersistent;
-        SecretsNotice = "Secure storage is not available on this system, so the API key is kept only until you close the app.";
+        SecretsNotice = "Secure storage is not available on this system, so API keys are kept only until you close the app.";
+
+        ShowProvider(_settings.Provider);
         _loaded = true;
     }
 
-    partial void OnProviderIndexChanged(int value)
+    private void SelectProvider(ChoiceTile tile)
     {
+        if (_drafts.Count == 0) return;
+        StoreDraft();
+        ShowProvider((LlmProvider)tile.Key);
+    }
+
+    private void StoreDraft()
+    {
+        if (!_drafts.TryGetValue(_provider, out var draft)) return;
+        draft.Model = Model.Trim();
+        draft.ApiKey = ApiKey.Trim();
+        draft.BaseUrl = BaseUrl.Trim();
+        draft.Context = ContextWindow.Trim();
+    }
+
+    private void ShowProvider(LlmProvider provider)
+    {
+        _provider = provider;
+        var info = LlmProviders.Get(provider);
+        foreach (var tile in ProviderTiles) tile.IsSelected = tile.Key == (int)provider;
+
+        var draft = _drafts[provider];
+        Model = draft.Model;
+        ApiKey = draft.ApiKey;
+        BaseUrl = draft.BaseUrl;
+        ContextWindow = draft.Context;
+
+        ProviderTitle = info.Label;
+        PrivacyNote = info.PrivacyNote;
+        ShowApiKey = info.NeedsApiKey;
+        ApiKeyLabel = info.ApiKeyOptional ? "API key (optional)" : "API key";
+        ApiKeyPlaceholder = info.ApiKeyPlaceholder;
+        ShowBaseUrl = info.ShowsBaseUrl;
+        BaseUrlPlaceholder = info.DefaultBaseUrl;
+        ShowContext = info.UserDefinedContext;
+        ShowParallel = provider != LlmProvider.Ollama;
+        ModelPlaceholder = info.ModelPlaceholder;
+        HasSignupLink = info.SignupUrl.Length > 0;
+        SignupText = info.SignupText;
+
+        SuggestedModels.Clear();
+        foreach (string m in info.SuggestedModels) SuggestedModels.Add(new FilterChip(m, m, chip => Model = chip.Key));
+        OnPropertyChanged(nameof(HasSuggestions));
+
         AvailableModels.Clear();
         OnPropertyChanged(nameof(HasModels));
         HasTestMessage = false;
+        IsKeyHidden = true;
     }
 
     partial void OnThemeIndexChanged(int value)
@@ -109,22 +196,20 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnSelectedModelChanged(string? value)
     {
-        if (string.IsNullOrEmpty(value)) return;
-        if (IsGemini) GeminiModel = value;
-        else OllamaModel = value;
+        if (!string.IsNullOrEmpty(value)) Model = value;
     }
 
-    private LlmSettings Draft()
+    private LlmSettings CurrentDraft()
     {
-        int context = int.TryParse(OllamaContext.Trim(), out int c) ? Math.Clamp(c, 2048, 1_000_000) : 32768;
+        int context = int.TryParse(ContextWindow.Trim(), out int c) ? Math.Clamp(c, 2048, 2_000_000) : 32768;
         return new LlmSettings
         {
-            Provider = IsGemini ? LlmProvider.Gemini : LlmProvider.Ollama,
-            OllamaUrl = OllamaUrl.Trim(),
-            OllamaModel = OllamaModel.Trim(),
-            OllamaContext = context,
-            GeminiModel = GeminiModel.Trim(),
-            GeminiApiKey = GeminiApiKey.Trim()
+            Provider = _provider,
+            Model = Model.Trim(),
+            ApiKey = ApiKey.Trim(),
+            BaseUrl = ShowBaseUrl ? BaseUrl.Trim() : "",
+            ContextWindow = context,
+            MaxParallelRequests = ParallelChoices[Math.Clamp(ParallelIndex, 0, ParallelChoices.Length - 1)]
         };
     }
 
@@ -133,17 +218,23 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task SaveAsync()
     {
-        var draft = Draft();
-        _settings.Provider = draft.Provider;
-        _settings.OllamaUrl = draft.OllamaUrl;
-        _settings.OllamaModel = draft.OllamaModel;
-        _settings.OllamaContext = draft.OllamaContext;
-        _settings.GeminiModel = draft.GeminiModel;
-        await _settings.SetGeminiApiKeyAsync(draft.GeminiApiKey);
+        if (_drafts.Count == 0) return;
+        StoreDraft();
 
-        OllamaContext = draft.OllamaContext.ToString();
+        foreach (var (provider, draft) in _drafts)
+        {
+            var info = LlmProviders.Get(provider);
+            _settings.SetModel(provider, draft.Model);
+            if (info.ShowsBaseUrl) _settings.SetBaseUrl(provider, draft.BaseUrl);
+            if (info.UserDefinedContext && int.TryParse(draft.Context, out int context)) _settings.SetContextWindow(provider, context);
+            if (info.NeedsApiKey && draft.ApiKey != _settings.GetApiKey(provider)) await _settings.SetApiKeyAsync(provider, draft.ApiKey);
+        }
+
+        _settings.Provider = _provider;
+        _settings.MaxParallelRequests = ParallelChoices[Math.Clamp(ParallelIndex, 0, ParallelChoices.Length - 1)];
+        ContextWindow = _settings.GetContextWindow(_provider).ToString();
         HasSecretsNotice = !_settings.SecretsArePersistent;
-        _notices.Show("Settings saved.", NoticeKind.Success);
+        _notices.Show($"Settings saved — analyses now use {LlmProviders.Get(_provider).Name} · {CurrentDraft().ModelName}.", NoticeKind.Success);
     }
 
     [RelayCommand]
@@ -154,13 +245,13 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (IsTesting) return;
         _testCts?.Cancel();
-        var cts = _testCts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        var cts = _testCts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
 
         IsTesting = true;
         HasTestMessage = false;
         try
         {
-            var result = await _llm.TestAsync(Draft(), cts.Token);
+            var result = await _llm.TestAsync(CurrentDraft(), cts.Token);
             TestSucceeded = result.Success;
             TestMessage = result.Message;
             HasTestMessage = true;
@@ -187,8 +278,8 @@ public partial class SettingsViewModel : ObservableObject
         HasTestMessage = false;
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
-            var models = await _llm.ListModelsAsync(Draft(), cts.Token);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var models = await _llm.ListModelsAsync(CurrentDraft(), cts.Token);
             FillModels(models);
             TestSucceeded = models.Count > 0;
             TestMessage = models.Count > 0 ? $"{models.Count} models available — pick one from the list." : "No models were returned.";
@@ -209,15 +300,14 @@ public partial class SettingsViewModel : ObservableObject
     private void FillModels(IReadOnlyList<string> models)
     {
         AvailableModels.Clear();
-        foreach (string model in models) AvailableModels.Add(model);
+        foreach (string m in models) AvailableModels.Add(m);
         OnPropertyChanged(nameof(HasModels));
     }
 
     [RelayCommand]
-    private async Task OpenKeyPageAsync() =>
-        await Launcher.Default.TryOpenAsync(new Uri("https://aistudio.google.com/apikey"));
-
-    [RelayCommand]
-    private async Task OpenOllamaPageAsync() =>
-        await Launcher.Default.TryOpenAsync(new Uri("https://ollama.com/download"));
+    private async Task OpenSignupPageAsync()
+    {
+        string url = LlmProviders.Get(_provider).SignupUrl;
+        if (url.Length > 0) await Launcher.Default.TryOpenAsync(new Uri(url));
+    }
 }

@@ -29,6 +29,7 @@ public partial class DiagramViewModel : ObservableObject
             if (_session.CurrentSection == AppSection.Diagram) await BuildAsync();
             else if (_session.CurrentSection != AppSection.Diagram && HtmlSource.Length > 0) Release();
         };
+        _session.DiagramFocusRequested += async () => await BuildAsync();
     }
 
     [ObservableProperty] private string htmlSource = "";
@@ -45,14 +46,25 @@ public partial class DiagramViewModel : ObservableObject
 
         Title = $"{schema.DatabaseName} · ER diagram";
         string theme = _theme.EffectiveTheme;
+        var focus = _session.TakeDiagramFocus();
+        var report = _session.LatestReport is { } latest && latest.DatabaseName == schema.DatabaseName ? latest : null;
+        var context = new DiagramContext
+        {
+            Insights = _session.Insights,
+            Report = report,
+            FocusTable = focus?.Table,
+            FocusRule = focus?.RuleId,
+            HealthLens = HealthLens
+        };
+
         IsLoading = true;
         try
         {
             string html = await Task.Run(() =>
             {
-                string page = DiagramHtmlBuilder.Build(schema, theme);
+                string page = DiagramHtmlBuilder.Build(schema, theme, context: context);
                 // very large schemas: drop the sample rows from the page to stay below the WebView limit
-                return page.Length > MaxHtmlChars ? DiagramHtmlBuilder.Build(schema, theme, includeSamples: false) : page;
+                return page.Length > MaxHtmlChars ? DiagramHtmlBuilder.Build(schema, theme, includeSamples: false, context: context) : page;
             });
             HtmlSource = html;
         }
@@ -65,6 +77,36 @@ public partial class DiagramViewModel : ObservableObject
     private void Release()
     {
         HtmlSource = "";
+    }
+
+    /// <summary>Remembered between visits: start the diagram with the health lens on.</summary>
+    public bool HealthLens
+    {
+        get => Preferences.Default.Get("Diagram.HealthLens", false);
+        set => Preferences.Default.Set("Diagram.HealthLens", value);
+    }
+
+    /// <summary>Handles "aida://command/argument" links raised by the diagram page.</summary>
+    public async Task HandleLinkAsync(string command, string argument)
+    {
+        switch (command)
+        {
+            case "copy":
+                await Clipboard.Default.SetTextAsync(argument);
+                _notices.Show("SQL copied to the clipboard.", NoticeKind.Success);
+                break;
+            case "ask":
+                _session.Ask($"Explain the table `{argument}`: its business purpose, how it relates to the other tables, how it is typically queried, and the most important problems or risks you see in its design.");
+                break;
+            case "section":
+                // "<report id>|<section index>"
+                int bar = argument.IndexOf('|');
+                if (bar > 0) _session.OpenReport(argument[..bar], int.TryParse(argument[(bar + 1)..], out int index) ? index : null);
+                break;
+            case "lens":
+                HealthLens = argument == "on";
+                break;
+        }
     }
 
     [RelayCommand]
@@ -97,7 +139,8 @@ public partial class DiagramViewModel : ObservableObject
     private async Task ExportHtmlAsync()
     {
         if (_session.Schema is not { } schema) return;
-        string html = await Task.Run(() => DiagramHtmlBuilder.Build(schema, "auto", embedded: false));
+        var context = new DiagramContext { Insights = _session.Insights, Report = _session.LatestReport is { } r && r.DatabaseName == schema.DatabaseName ? r : null };
+        string html = await Task.Run(() => DiagramHtmlBuilder.Build(schema, "auto", embedded: false, context: context));
         string? path = await _files.SaveTextAsync($"{schema.DatabaseName}-er-diagram.html", html);
         if (path is not null) _notices.Show("Interactive diagram saved — open it in any browser.", NoticeKind.Success);
     }

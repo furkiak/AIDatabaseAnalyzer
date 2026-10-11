@@ -5,10 +5,8 @@ namespace AIDatabaseAnalyzer.Services.Infrastructure;
 /// <inheritdoc cref="ISettingsService"/>
 public sealed class SettingsService : ISettingsService
 {
-    private const string ApiKeyName = "GeminiApiKey";
-
     private readonly ISecretStore _secrets;
-    private string _geminiApiKey = "";
+    private readonly Dictionary<LlmProvider, string> _apiKeys = new();
     private bool _initialized;
 
     public SettingsService(ISecretStore secrets) => _secrets = secrets;
@@ -16,41 +14,53 @@ public sealed class SettingsService : ISettingsService
     public async Task InitializeAsync()
     {
         if (_initialized) return;
-        _geminiApiKey = await _secrets.GetAsync(ApiKeyName).ConfigureAwait(false) ?? "";
+        foreach (var info in LlmProviders.All.Where(p => p.NeedsApiKey))
+            _apiKeys[info.Provider] = await _secrets.GetAsync(SecretName(info.Provider)).ConfigureAwait(false) ?? "";
         _initialized = true;
     }
 
+    // Preference names of the first two providers are kept from earlier versions so existing settings survive the update.
+    private static string ModelKey(LlmProvider p) => p switch { LlmProvider.Ollama => "OllamaModel", LlmProvider.Gemini => "GeminiModel", _ => $"{p}Model" };
+    private static string UrlKey(LlmProvider p) => p == LlmProvider.Ollama ? "OllamaUrl" : $"{p}Url";
+    private static string ContextKey(LlmProvider p) => p == LlmProvider.Ollama ? "OllamaContext" : $"{p}Context";
+    private static string SecretName(LlmProvider p) => p == LlmProvider.Gemini ? "GeminiApiKey" : $"{p}ApiKey";
+
     public LlmProvider Provider
     {
-        get => Preferences.Default.Get("SelectedEngine", "Ollama") == "Gemini" ? LlmProvider.Gemini : LlmProvider.Ollama;
-        set => Preferences.Default.Set("SelectedEngine", value == LlmProvider.Gemini ? "Gemini" : "Ollama");
+        get => Enum.TryParse(Preferences.Default.Get("SelectedEngine", "Ollama"), out LlmProvider p) && Enum.IsDefined(p) ? p : LlmProvider.Ollama;
+        set => Preferences.Default.Set("SelectedEngine", value.ToString());
     }
 
-    public string OllamaUrl
+    public string GetModel(LlmProvider provider) => Preferences.Default.Get(ModelKey(provider), LlmProviders.Get(provider).DefaultModel);
+    public void SetModel(LlmProvider provider, string model) => Preferences.Default.Set(ModelKey(provider), (model ?? "").Trim());
+
+    public string GetBaseUrl(LlmProvider provider)
     {
-        get => Preferences.Default.Get("OllamaUrl", "http://localhost:11434");
-        set => Preferences.Default.Set("OllamaUrl", (value ?? "").Trim());
+        var info = LlmProviders.Get(provider);
+        // Only self-hosted providers show the address; cloud providers always use their public endpoint.
+        return info.ShowsBaseUrl ? Preferences.Default.Get(UrlKey(provider), info.DefaultBaseUrl) : "";
     }
 
-    public string OllamaModel
+    public void SetBaseUrl(LlmProvider provider, string url) => Preferences.Default.Set(UrlKey(provider), (url ?? "").Trim());
+
+    public int GetContextWindow(LlmProvider provider) => Math.Clamp(Preferences.Default.Get(ContextKey(provider), 32768), 2048, 2_000_000);
+    public void SetContextWindow(LlmProvider provider, int tokens) => Preferences.Default.Set(ContextKey(provider), Math.Clamp(tokens, 2048, 2_000_000));
+
+    public string GetApiKey(LlmProvider provider) => _apiKeys.TryGetValue(provider, out string? key) ? key : "";
+
+    public async Task SetApiKeyAsync(LlmProvider provider, string? apiKey)
     {
-        get => Preferences.Default.Get("OllamaModel", "qwen2.5-coder");
-        set => Preferences.Default.Set("OllamaModel", (value ?? "").Trim());
+        string key = (apiKey ?? "").Trim();
+        _apiKeys[provider] = key;
+        if (key.Length == 0) await _secrets.RemoveAsync(SecretName(provider)).ConfigureAwait(false);
+        else await _secrets.SetAsync(SecretName(provider), key).ConfigureAwait(false);
     }
 
-    public int OllamaContext
+    public int MaxParallelRequests
     {
-        get => Math.Clamp(Preferences.Default.Get("OllamaContext", 32768), 2048, 1_000_000);
-        set => Preferences.Default.Set("OllamaContext", Math.Clamp(value, 2048, 1_000_000));
+        get => Math.Clamp(Preferences.Default.Get("MaxParallelRequests", 3), 1, 8);
+        set => Preferences.Default.Set("MaxParallelRequests", Math.Clamp(value, 1, 8));
     }
-
-    public string GeminiModel
-    {
-        get => Preferences.Default.Get("GeminiModel", "gemini-3.1-flash-lite-preview");
-        set => Preferences.Default.Set("GeminiModel", (value ?? "").Trim());
-    }
-
-    public string GeminiApiKey => _geminiApiKey;
 
     public string ReportLanguage
     {
@@ -72,21 +82,15 @@ public sealed class SettingsService : ISettingsService
 
     public bool SecretsArePersistent => _secrets.IsPersistent;
 
-    public async Task SetGeminiApiKeyAsync(string? apiKey)
-    {
-        string key = (apiKey ?? "").Trim();
-        _geminiApiKey = key;
-        if (key.Length == 0) await _secrets.RemoveAsync(ApiKeyName).ConfigureAwait(false);
-        else await _secrets.SetAsync(ApiKeyName, key).ConfigureAwait(false);
-    }
+    public LlmSettings GetLlmSettings() => GetLlmSettings(Provider);
 
-    public LlmSettings GetLlmSettings() => new()
+    public LlmSettings GetLlmSettings(LlmProvider provider) => new()
     {
-        Provider = Provider,
-        OllamaUrl = OllamaUrl,
-        OllamaModel = OllamaModel,
-        OllamaContext = OllamaContext,
-        GeminiModel = GeminiModel,
-        GeminiApiKey = _geminiApiKey
+        Provider = provider,
+        Model = GetModel(provider),
+        ApiKey = GetApiKey(provider),
+        BaseUrl = GetBaseUrl(provider),
+        ContextWindow = GetContextWindow(provider),
+        MaxParallelRequests = MaxParallelRequests
     };
 }

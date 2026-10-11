@@ -63,7 +63,17 @@ public partial class ScopeViewModel : ObservableObject
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
     public bool IsIdle => !IsLoadingTables && !IsExtracting;
     public bool HasTables => _allTables.Count > 0;
-    public string ServerText => _session.Connection is { } c ? $"{c.Engine.DisplayName()} · {c.Server}" : "";
+    public string ServerText => _session.Connection is { } c
+        ? c.Engine == DbEngine.Sqlite ? $"SQLite · {Path.GetFileName(c.Server)} (read-only)" : $"{c.Engine.DisplayName()} · {c.Server}"
+        : "";
+
+    /// <summary>Oracle lists schemas (owners), SQLite has exactly one database per file.</summary>
+    public string DatabaseLabel => _session.Connection?.Engine switch
+    {
+        DbEngine.Oracle => "Target schema",
+        DbEngine.Sqlite => "Database file",
+        _ => "Target database"
+    };
 
     // ------------------------------------------------------------------ session events
 
@@ -79,6 +89,7 @@ public partial class ScopeViewModel : ObservableObject
         ErrorMessage = null;
         UpdateCount();
         OnPropertyChanged(nameof(ServerText));
+        OnPropertyChanged(nameof(DatabaseLabel));
         OnPropertyChanged(nameof(HasTables));
 
         // a single database does not need a decision

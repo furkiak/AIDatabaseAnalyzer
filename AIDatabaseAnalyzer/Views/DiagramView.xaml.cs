@@ -1,3 +1,4 @@
+using AIDatabaseAnalyzer.Services.Infrastructure;
 using AIDatabaseAnalyzer.ViewModels;
 
 namespace AIDatabaseAnalyzer.Views;
@@ -7,6 +8,10 @@ public partial class DiagramView : ContentView
     public DiagramView()
     {
         InitializeComponent();
+
+        // The page talks to the app through "aida://command/argument" navigations.
+        HostLinks.Attach(Browser, (command, argument) =>
+            BindingContext is DiagramViewModel viewModel ? viewModel.HandleLinkAsync(command, argument) : Task.CompletedTask);
     }
 
     protected override void OnBindingContextChanged()

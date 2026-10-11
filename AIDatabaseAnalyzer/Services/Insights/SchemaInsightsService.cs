@@ -297,7 +297,8 @@ public static class SchemaInsightsService
                 string type = col.BaseType.ToLowerInvariant();
                 bool legacySqlServer = c.Schema.Engine == DbEngine.SqlServer && type is "text" or "ntext" or "image";
                 bool moneyPostgres = c.Schema.Engine == DbEngine.PostgreSql && type == "money";
-                if (legacySqlServer || moneyPostgres) hits.Add($"{t.FullName}.{col.Name} ({col.DataType})");
+                bool longOracle = c.Schema.Engine == DbEngine.Oracle && type is "long" or "long raw";
+                if (legacySqlServer || moneyPostgres || longOracle) hits.Add($"{t.FullName}.{col.Name} ({col.DataType})");
             }
         }
 
@@ -305,7 +306,7 @@ public static class SchemaInsightsService
         c.Add("DEPRECATED_TYPES", FindingSeverity.Medium, FindingCategory.Maintainability,
             "Deprecated or discouraged data types",
             "These types are deprecated or have known pitfalls (limited functions, locale dependent rounding).",
-            "Use VARCHAR(MAX) / NVARCHAR(MAX) / VARBINARY(MAX) on SQL Server and NUMERIC on PostgreSQL.",
+            "Use VARCHAR(MAX) / NVARCHAR(MAX) / VARBINARY(MAX) on SQL Server, NUMERIC on PostgreSQL and CLOB / BLOB instead of LONG on Oracle.",
             hits, c.Schema.ColumnCount);
     }
 
@@ -328,6 +329,8 @@ public static class SchemaInsightsService
 
     private static void DatesStoredAsText(Context c)
     {
+        // SQLite has no date type: ISO-8601 text is its documented way to store dates.
+        if (c.Schema.Engine == DbEngine.Sqlite) return;
         var hits = new List<string>();
         foreach (var t in c.Schema.Tables)
             foreach (var col in t.Columns)
@@ -486,7 +489,8 @@ public static class SchemaInsightsService
 
         if (underscore) return upper && !lower ? "UPPER_SNAKE" : upper ? "Mixed_Snake" : "snake_case";
         if (!upper) return null;
-        if (!lower) return name.Length > 2 ? "UPPERCASE" : null;
+        // A single upper-case word (CUSTOMERS) is simply UPPER_SNAKE without a second word, as Oracle names usually are.
+        if (!lower) return name.Length > 2 ? "UPPER_SNAKE" : null;
         return char.IsUpper(name[0]) ? "PascalCase" : "camelCase";
     }
 
@@ -563,13 +567,8 @@ public static class SchemaInsightsService
     {
         var hits = new List<string>();
         bool large = false;
-        foreach (var fk in c.Schema.ForeignKeys)
+        foreach (var fk in UnindexedForeignKeys(c.Schema, c.IndexesByTable))
         {
-            var indexes = c.IndexesByTable[fk.FromTable];
-            bool covered = indexes.Any(ix => ix.Columns.Count >= fk.FromColumns.Count
-                && fk.FromColumns.All(col => ix.Columns.Take(fk.FromColumns.Count).Contains(col, StringComparer.OrdinalIgnoreCase)));
-            if (covered) continue;
-
             hits.Add($"{fk.FromTable}({string.Join(", ", fk.FromColumns)}) → {fk.ToTable}");
             if (c.Schema.FindTable(fk.FromTable)?.RowCount > 100_000) large = true;
         }
@@ -582,10 +581,25 @@ public static class SchemaInsightsService
             hits, c.Schema.ForeignKeys.Count);
     }
 
-    private static void DuplicateIndexes(Context c)
+    /// <summary>Foreign keys whose columns are not the leading columns of any index (shared with the fix script).</summary>
+    internal static IEnumerable<ForeignKeyInfo> UnindexedForeignKeys(DatabaseSchema schema, IReadOnlyDictionary<string, List<IndexInfo>>? byTable = null)
     {
-        var hits = new List<string>();
-        foreach (var (table, indexes) in c.IndexesByTable)
+        byTable ??= IndexesByTable(schema);
+        foreach (var fk in schema.ForeignKeys)
+        {
+            if (!byTable.TryGetValue(fk.FromTable, out var indexes)) continue;
+            bool covered = indexes.Any(ix => ix.Columns.Count >= fk.FromColumns.Count
+                && fk.FromColumns.All(col => ix.Columns.Take(fk.FromColumns.Count).Contains(col, StringComparer.OrdinalIgnoreCase)));
+            if (!covered) yield return fk;
+        }
+    }
+
+    /// <summary>Indexes that duplicate another one exactly, or are a left prefix of a wider one (shared with the fix script).</summary>
+    internal static IEnumerable<(string Table, IndexInfo Redundant, IndexInfo Keep, bool Exact)> RedundantIndexes(
+        DatabaseSchema schema, IReadOnlyDictionary<string, List<IndexInfo>>? byTable = null)
+    {
+        byTable ??= IndexesByTable(schema);
+        foreach (var (table, indexes) in byTable)
         {
             var list = indexes.ToList();
             var handled = new HashSet<IndexInfo>();
@@ -598,7 +612,7 @@ public static class SchemaInsightsService
                 foreach (var dup in group.Where(x => !ReferenceEquals(x, keep)))
                 {
                     handled.Add(dup);
-                    hits.Add($"{table}: {dup.Name} duplicates {keep.Name} ({string.Join(", ", dup.Columns)})");
+                    yield return (table, dup, keep, true);
                 }
             }
 
@@ -607,9 +621,26 @@ public static class SchemaInsightsService
                 var cover = list.FirstOrDefault(other => !ReferenceEquals(other, ix) && !handled.Contains(other)
                     && other.Columns.Count > ix.Columns.Count
                     && ix.Columns.Select((col, i) => string.Equals(col, other.Columns[i], StringComparison.OrdinalIgnoreCase)).All(x => x));
-                if (cover is not null) hits.Add($"{table}: {ix.Name} ({string.Join(", ", ix.Columns)}) is covered by {cover.Name} ({string.Join(", ", cover.Columns)})");
+                if (cover is not null) yield return (table, ix, cover, false);
             }
         }
+    }
+
+    private static Dictionary<string, List<IndexInfo>> IndexesByTable(DatabaseSchema schema)
+    {
+        var map = schema.Tables.ToDictionary(t => t.FullName, _ => new List<IndexInfo>(), StringComparer.OrdinalIgnoreCase);
+        foreach (var ix in schema.Indexes)
+            if (map.TryGetValue(ix.Table, out var list)) list.Add(ix);
+        return map;
+    }
+
+    private static void DuplicateIndexes(Context c)
+    {
+        var hits = RedundantIndexes(c.Schema, c.IndexesByTable)
+            .Select(r => r.Exact
+                ? $"{r.Table}: {r.Redundant.Name} duplicates {r.Keep.Name} ({string.Join(", ", r.Redundant.Columns)})"
+                : $"{r.Table}: {r.Redundant.Name} ({string.Join(", ", r.Redundant.Columns)}) is covered by {r.Keep.Name} ({string.Join(", ", r.Keep.Columns)})")
+            .ToList();
 
         if (hits.Count == 0) return;
         c.Add("DUPLICATE_INDEXES", FindingSeverity.Medium, FindingCategory.Performance,
@@ -680,6 +711,7 @@ public static class SchemaInsightsService
         {
             Schema = schema;
             IndexesByTable = schema.Tables.ToDictionary(t => t.FullName, _ => new List<IndexInfo>(), StringComparer.OrdinalIgnoreCase);
+            TablesLongestFirst = schema.Tables.Select(t => t.FullName).OrderByDescending(n => n.Length).ToList();
             foreach (var ix in schema.Indexes)
             {
                 if (IndexesByTable.TryGetValue(ix.Table, out var list)) list.Add(ix);
@@ -687,6 +719,7 @@ public static class SchemaInsightsService
         }
 
         public DatabaseSchema Schema { get; }
+        private List<string> TablesLongestFirst { get; }
         public Dictionary<string, List<IndexInfo>> IndexesByTable { get; }
         public List<(Finding Finding, double Ratio)> Entries { get; } = new();
 
@@ -706,8 +739,20 @@ public static class SchemaInsightsService
                 Description = description,
                 Recommendation = recommendation,
                 Objects = listed,
-                Count = count
+                Count = count,
+                Tables = objects.Select(TableAtStart).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToList()
             }, Math.Min(1.0, count / (double)Math.Max(total, 1))));
+        }
+
+        /// <summary>The table an object description starts with ("orders(customer_id) → customers" → orders); longest name wins.</summary>
+        private string? TableAtStart(string text)
+        {
+            foreach (string table in TablesLongestFirst)
+            {
+                if (!text.StartsWith(table, StringComparison.OrdinalIgnoreCase)) continue;
+                if (text.Length == table.Length || text[table.Length] is '.' or '(' or ' ' or ',' or ':') return table;
+            }
+            return null;
         }
     }
 
@@ -720,7 +765,17 @@ public static class SchemaInsightsService
         return sb.ToString();
     }
 
-    internal static string TypeFamily(string baseType) => baseType.ToLowerInvariant() switch
+    internal static string TypeFamily(string baseType)
+    {
+        // Oracle reports TIMESTAMP(6) / TIMESTAMP(6) WITH TIME ZONE as the base type; compare without precision.
+        string type = baseType.ToLowerInvariant().Trim();
+        int paren = type.IndexOf('(');
+        if (paren > 0) type = type[..paren].Trim();
+        if (type.StartsWith("timestamp", StringComparison.Ordinal)) return "datetime";
+        return BaseFamily(type);
+    }
+
+    private static string BaseFamily(string type) => type switch
     {
         "int" or "integer" or "int4" or "mediumint" or "serial" => "int",
         "bigint" or "int8" or "bigserial" => "bigint",
@@ -728,12 +783,14 @@ public static class SchemaInsightsService
         "tinyint" => "tinyint",
         "bit" or "bool" or "boolean" => "bool",
         "char" or "varchar" or "nchar" or "nvarchar" or "bpchar" or "character" or "character varying" or "text" or "ntext"
-            or "tinytext" or "mediumtext" or "longtext" or "citext" or "name" => "string",
-        "float" or "float4" or "float8" or "real" or "double" or "double precision" => "float",
-        "decimal" or "numeric" or "money" or "smallmoney" => "decimal",
+            or "tinytext" or "mediumtext" or "longtext" or "citext" or "name"
+            or "varchar2" or "nvarchar2" or "clob" or "nclob" or "long" => "string",
+        "float" or "float4" or "float8" or "real" or "double" or "double precision" or "binary_float" or "binary_double" => "float",
+        "decimal" or "numeric" or "money" or "smallmoney" or "number" => "decimal",
         "uniqueidentifier" or "uuid" => "guid",
         "datetime" or "datetime2" or "smalldatetime" or "timestamp" or "timestamptz" or "datetimeoffset" => "datetime",
-        "binary" or "varbinary" or "bytea" or "blob" or "tinyblob" or "mediumblob" or "longblob" or "image" => "binary",
+        "binary" or "varbinary" or "bytea" or "blob" or "tinyblob" or "mediumblob" or "longblob" or "image"
+            or "raw" or "long raw" or "bfile" => "binary",
         var other => other
     };
 

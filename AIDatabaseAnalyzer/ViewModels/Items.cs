@@ -33,21 +33,51 @@ public partial class FilterChip : ObservableObject
     private void Select() => _select(this);
 }
 
+/// <summary>A selectable card with a title and a short caption (AI provider, database engine, topic preset).</summary>
+public partial class ChoiceTile : ObservableObject
+{
+    private readonly Action<ChoiceTile> _select;
+
+    public ChoiceTile(int key, string title, string caption, Action<ChoiceTile> select)
+    {
+        Key = key;
+        Title = title;
+        Caption = caption;
+        _select = select;
+    }
+
+    public int Key { get; }
+    public string Title { get; }
+    public string Caption { get; }
+
+    [ObservableProperty] private bool isSelected;
+
+    [RelayCommand]
+    private void Select() => _select(this);
+}
+
 /// <summary>A finding as displayed in the Insights list.</summary>
 public partial class FindingItem : ObservableObject
 {
-    public FindingItem(Finding finding)
+    private readonly Action<FindingItem>? _showInDiagram;
+    private readonly Action<FindingItem>? _ask;
+
+    public FindingItem(Finding finding, Action<FindingItem>? showInDiagram = null, Action<FindingItem>? ask = null)
     {
         Finding = finding;
-        SeverityColor = finding.Severity switch
-        {
-            FindingSeverity.Critical => Color.FromArgb("#B42318"),
-            FindingSeverity.High => Color.FromArgb("#E5483E"),
-            FindingSeverity.Medium => Color.FromArgb("#D98A00"),
-            FindingSeverity.Low => Color.FromArgb("#2E7CF6"),
-            _ => Color.FromArgb("#7A7A85")
-        };
+        _showInDiagram = showInDiagram;
+        _ask = ask;
+        SeverityColor = SeverityColors.For(finding.Severity);
     }
+
+    public bool HasTables => Finding.Tables.Count > 0 && _showInDiagram is not null;
+    public string DiagramText => Finding.Tables.Count == 1 ? "Show in diagram" : $"Show {Finding.Tables.Count} tables in diagram";
+
+    [RelayCommand]
+    private void ShowInDiagram() => _showInDiagram?.Invoke(this);
+
+    [RelayCommand]
+    private void Ask() => _ask?.Invoke(this);
 
     public Finding Finding { get; }
     public string Title => Finding.Title;
@@ -64,6 +94,40 @@ public partial class FindingItem : ObservableObject
 
     [RelayCommand]
     private void Toggle() => IsExpanded = !IsExpanded;
+}
+
+public static class SeverityColors
+{
+    public static Color For(FindingSeverity severity) => severity switch
+    {
+        FindingSeverity.Critical => Color.FromArgb("#B42318"),
+        FindingSeverity.High => Color.FromArgb("#E5483E"),
+        FindingSeverity.Medium => Color.FromArgb("#D98A00"),
+        FindingSeverity.Low => Color.FromArgb("#2E7CF6"),
+        _ => Color.FromArgb("#7A7A85")
+    };
+}
+
+/// <summary>A table with many or severe findings; opens the diagram focused on it.</summary>
+public partial class HotSpotItem : ObservableObject
+{
+    private readonly Action<HotSpotItem> _open;
+
+    public HotSpotItem(string table, int findings, FindingSeverity worst, Action<HotSpotItem> open)
+    {
+        Table = table;
+        Findings = findings;
+        Color = SeverityColors.For(worst);
+        _open = open;
+    }
+
+    public string Table { get; }
+    public int Findings { get; }
+    public Color Color { get; }
+    public string CountText => Findings == 1 ? "1 finding" : $"{Findings} findings";
+
+    [RelayCommand]
+    private void Open() => _open(this);
 }
 
 /// <summary>A row of the report history.</summary>

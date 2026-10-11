@@ -134,6 +134,8 @@
                 <views:ReportsView x:Name="ReportsPanel" IsVisible="{Binding IsReportsVisible}" />
                 <views:SettingsView x:Name="SettingsPanel" IsVisible="{Binding IsSettingsVisible}" />
                 <views:DiagramView x:Name="DiagramPanel" IsVisible="{Binding IsDiagramVisible}" />
+                <views:ChatView x:Name="ChatPanel" IsVisible="{Binding IsChatVisible}" />
+                <views:SnapshotsView x:Name="SnapshotsPanel" IsVisible="{Binding IsSnapshotsVisible}" />
             </Grid>
         </Grid>
 

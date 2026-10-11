@@ -61,13 +61,16 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Anthropic" Version="12.55.0" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
 		<PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.7" />
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.20" />
 		<PackageReference Include="Microsoft.Extensions.Http" Version="9.0.20" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.20" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="MySqlConnector" Version="2.6.2" />
 		<PackageReference Include="Npgsql" Version="10.0.3" />
+		<PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.301" />
 		<PackageReference Include="QuestPDF" Version="2026.9.1" />
 	</ItemGroup>
 

@@ -33,19 +33,28 @@ public partial class ConnectViewModel : ObservableObject
         foreach (var profile in profiles.Load().OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase))
             Profiles.Add(profile);
 
+        foreach (var engine in DbEngineExtensions.All)
+            EngineChips.Add(new FilterChip(((int)engine).ToString(), engine.DisplayName(), chip => Engine = (DbEngine)int.Parse(chip.Key)));
+
         RestoreLastUsed();
         UpdateEngineHints();
     }
 
-    public IReadOnlyList<string> Engines { get; } = new[] { "SQL Server", "PostgreSQL", "MySQL / MariaDB" };
+    public ObservableCollection<FilterChip> EngineChips { get; } = new();
 
     public ObservableCollection<SavedConnection> Profiles { get; } = new();
 
     [NotifyPropertyChangedFor(nameof(ShowIntegratedSecurity))]
     [NotifyPropertyChangedFor(nameof(ShowCredentials))]
-    [ObservableProperty] private int selectedEngineIndex;
+    [NotifyPropertyChangedFor(nameof(IsSqlite))]
+    [NotifyPropertyChangedFor(nameof(IsOracle))]
+    [NotifyPropertyChangedFor(nameof(IsServerBased))]
+    [NotifyPropertyChangedFor(nameof(ShowTrustCertificate))]
+    [ObservableProperty] private DbEngine engine;
 
     [ObservableProperty] private string server = "";
+    [ObservableProperty] private string serviceName = "";
+    [ObservableProperty] private string engineHint = "";
     [ObservableProperty] private string port = "";
     [ObservableProperty] private string username = "";
     [ObservableProperty] private string password = "";
@@ -75,13 +84,20 @@ public partial class ConnectViewModel : ObservableObject
     public bool HasProfiles => Profiles.Count > 0;
 
     /// <summary>Windows authentication only exists for SQL Server on Windows.</summary>
-    public bool ShowIntegratedSecurity => SelectedEngineIndex == 0 && OperatingSystem.IsWindows();
+    public bool ShowIntegratedSecurity => Engine == DbEngine.SqlServer && OperatingSystem.IsWindows();
 
-    public bool ShowCredentials => !(ShowIntegratedSecurity && UseIntegratedSecurity);
+    public bool ShowCredentials => IsServerBased && !(ShowIntegratedSecurity && UseIntegratedSecurity);
 
-    partial void OnSelectedEngineIndexChanged(int value)
+    public bool IsSqlite => Engine == DbEngine.Sqlite;
+    public bool IsOracle => Engine == DbEngine.Oracle;
+    public bool IsServerBased => !Engine.IsFileBased();
+
+    /// <summary>Only SQL Server (TrustServerCertificate) and MySQL (public key retrieval) use this switch.</summary>
+    public bool ShowTrustCertificate => Engine is DbEngine.SqlServer or DbEngine.MySql;
+
+    partial void OnEngineChanged(DbEngine value)
     {
-        if (value != 0) UseIntegratedSecurity = false;
+        if (value != DbEngine.SqlServer) UseIntegratedSecurity = false;
         UpdateEngineHints();
     }
 
@@ -93,16 +109,42 @@ public partial class ConnectViewModel : ObservableObject
 
     private void UpdateEngineHints()
     {
-        var engine = (DbEngine)Math.Clamp(SelectedEngineIndex, 0, 2);
-        ServerPlaceholder = engine == DbEngine.SqlServer ? @"localhost\SQLEXPRESS" : "localhost";
-        PortPlaceholder = engine.DefaultPort().ToString();
-        UserPlaceholder = engine switch { DbEngine.SqlServer => "sa", DbEngine.PostgreSql => "postgres", _ => "root" };
+        foreach (var chip in EngineChips) chip.IsSelected = chip.Key == ((int)Engine).ToString();
+        ServerPlaceholder = Engine switch
+        {
+            DbEngine.SqlServer => @"localhost\SQLEXPRESS",
+            DbEngine.Sqlite => OperatingSystem.IsWindows() ? @"C:\data\app.db" : "/Users/me/app.sqlite",
+            DbEngine.Oracle => "localhost  (or host:port/service, or a TNS descriptor)",
+            _ => "localhost"
+        };
+        PortPlaceholder = Engine.DefaultPort().ToString();
+        UserPlaceholder = Engine switch { DbEngine.SqlServer => "sa", DbEngine.PostgreSql => "postgres", DbEngine.Oracle => "system", _ => "root" };
+        EngineHint = Engine.CompatibleServices();
+    }
+
+    [RelayCommand]
+    private async Task BrowseFileAsync()
+    {
+        try
+        {
+            var file = await FilePicker.Default.PickAsync(new PickOptions { PickerTitle = "Choose a SQLite database file" });
+            if (file is not null)
+            {
+                Server = file.FullPath;
+                ErrorMessage = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "The file could not be opened: " + Describe(ex);
+        }
     }
 
     private async Task LoadProfileAsync(SavedConnection profile)
     {
-        SelectedEngineIndex = Math.Clamp(profile.Engine, 0, 2);
+        Engine = ToEngine(profile.Engine);
         Server = profile.Server;
+        ServiceName = profile.ServiceName;
         Port = profile.Port?.ToString() ?? "";
         Username = profile.Username;
         UseIntegratedSecurity = profile.UseIntegratedSecurity && ShowIntegratedSecurity;
@@ -121,7 +163,13 @@ public partial class ConnectViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(Server))
         {
-            ErrorMessage = "Enter the server address first.";
+            ErrorMessage = IsSqlite ? "Choose the database file first." : "Enter the server address first.";
+            return;
+        }
+
+        if (IsOracle && string.IsNullOrWhiteSpace(ServiceName) && !Server.Contains('/') && !Server.Contains('('))
+        {
+            ErrorMessage = "Enter the Oracle service name (for example FREEPDB1 or ORCLPDB1).";
             return;
         }
 
@@ -138,11 +186,12 @@ public partial class ConnectViewModel : ObservableObject
 
         var settings = new ConnectionSettings
         {
-            Engine = (DbEngine)Math.Clamp(SelectedEngineIndex, 0, 2),
+            Engine = Engine,
             Server = Server.Trim(),
-            Port = portNumber,
-            Username = Username.Trim(),
-            Password = Password,
+            Port = IsServerBased ? portNumber : null,
+            Username = IsServerBased ? Username.Trim() : "",
+            Password = IsServerBased ? Password : "",
+            ServiceName = IsOracle ? ServiceName.Trim() : "",
             UseIntegratedSecurity = ShowIntegratedSecurity && UseIntegratedSecurity,
             TrustServerCertificate = TrustServerCertificate
         };
@@ -161,7 +210,9 @@ public partial class ConnectViewModel : ObservableObject
 
             SaveLastUsed(settings);
             _session.SetConnection(settings, databases);
-            _notices.Show($"Connected to {settings.Server} — {databases.Count} databases found.", NoticeKind.Success);
+            _notices.Show(IsSqlite
+                ? $"Opened {Path.GetFileName(settings.Server)} (read-only)."
+                : $"Connected to {settings.Server} — {databases.Count} {(IsOracle ? "schemas" : "databases")} found.", NoticeKind.Success);
             _session.TryNavigate(AppSection.Scope);
         }
         catch (OperationCanceledException)
@@ -198,14 +249,17 @@ public partial class ConnectViewModel : ObservableObject
             return;
         }
 
-        string name = string.IsNullOrWhiteSpace(ProfileName) ? Server.Trim() : ProfileName.Trim();
+        string name = string.IsNullOrWhiteSpace(ProfileName)
+            ? (IsSqlite ? Path.GetFileName(Server.Trim()) : Server.Trim())
+            : ProfileName.Trim();
         var existing = Profiles.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
         int? portNumber = int.TryParse(Port.Trim(), out int parsed) ? parsed : null;
         var profile = existing ?? new SavedConnection();
         profile.Name = name;
-        profile.Engine = Math.Clamp(SelectedEngineIndex, 0, 2);
+        profile.Engine = (int)Engine;
         profile.Server = Server.Trim();
+        profile.ServiceName = ServiceName.Trim();
         profile.Port = portNumber;
         profile.Username = Username.Trim();
         profile.UseIntegratedSecurity = ShowIntegratedSecurity && UseIntegratedSecurity;
@@ -253,16 +307,21 @@ public partial class ConnectViewModel : ObservableObject
     {
         Preferences.Default.Set("last.engine", (int)s.Engine);
         Preferences.Default.Set("last.server", s.Server);
+        Preferences.Default.Set("last.service", s.ServiceName);
         Preferences.Default.Set("last.port", s.Port?.ToString() ?? "");
         Preferences.Default.Set("last.user", s.Username);
         Preferences.Default.Set("last.integrated", s.UseIntegratedSecurity);
         Preferences.Default.Set("last.trust", s.TrustServerCertificate);
     }
 
+    private static DbEngine ToEngine(int value) =>
+        Enum.IsDefined(typeof(DbEngine), value) ? (DbEngine)value : DbEngine.SqlServer;
+
     private void RestoreLastUsed()
     {
-        SelectedEngineIndex = Math.Clamp(Preferences.Default.Get("last.engine", 0), 0, 2);
+        Engine = ToEngine(Preferences.Default.Get("last.engine", 0));
         Server = Preferences.Default.Get("last.server", "");
+        ServiceName = Preferences.Default.Get("last.service", "");
         Port = Preferences.Default.Get("last.port", "");
         Username = Preferences.Default.Get("last.user", "");
         TrustServerCertificate = Preferences.Default.Get("last.trust", true);

@@ -22,14 +22,18 @@
 		<Compile Include="$(App)Services\Markdown\**\*.cs" LinkBase="App\Services\Markdown" />
 		<Compile Include="$(App)Services\Reporting\**\*.cs" LinkBase="App\Services\Reporting" />
 		<Compile Include="$(App)Services\Llm\**\*.cs" LinkBase="App\Services\Llm" />
+		<Compile Include="$(App)Services\History\**\*.cs" LinkBase="App\Services\History" />
 		<EmbeddedResource Include="$(App)Resources\Web\diagram.html" LogicalName="AIDatabaseAnalyzer.Web.diagram.html" />
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Anthropic" Version="12.55.0" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
 		<PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.7" />
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.20" />
 		<PackageReference Include="MySqlConnector" Version="2.6.2" />
 		<PackageReference Include="Npgsql" Version="10.0.3" />
+		<PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.301" />
 		<PackageReference Include="QuestPDF" Version="2026.9.1" />
 
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
