@@ -1,25 +1,26 @@
-﻿namespace AIDatabaseAnalyzer;
+using AIDatabaseAnalyzer.Services.Infrastructure;
+
+namespace AIDatabaseAnalyzer;
 
 public partial class App : Application
 {
-    public App()
+    private readonly IServiceProvider _services;
+
+    public App(IServiceProvider services, ISettingsService settings, IThemeService theme)
     {
         InitializeComponent();
-        MainPage = new AppShell();
+        _services = services;
+        theme.Apply(settings.Theme);
     }
 
-    protected override Window CreateWindow(IActivationState activationState)
-    {
-        var window = base.CreateWindow(activationState);
-         
-        const int newWidth = 1024;
-        const int newHeight = 850;
-
-        window.Width = newWidth;
-        window.Height = newHeight;
-        window.MinimumWidth = 1024;
-        window.MinimumHeight = 768;
-
-        return window;
-    }
+    // The page is resolved here (not in the constructor) because it needs the application resources to be loaded first.
+    protected override Window CreateWindow(IActivationState? activationState) =>
+        new(_services.GetRequiredService<MainPage>())
+        {
+            Title = "AI Database Analyzer",
+            Width = 1240,
+            Height = 840,
+            MinimumWidth = 1020,
+            MinimumHeight = 700
+        };
 }

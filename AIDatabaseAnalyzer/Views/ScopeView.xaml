@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:AIDatabaseAnalyzer.ViewModels"
+             xmlns:models="clr-namespace:AIDatabaseAnalyzer.Models"
+             x:Class="AIDatabaseAnalyzer.Views.ScopeView"
+             x:DataType="vm:ScopeViewModel">
+
+    <ScrollView>
+        <VerticalStackLayout x:Name="Column" WidthRequest="700" Spacing="20" Padding="0,30,0,40" HorizontalOptions="Center">
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Scope" StyleClass="LargeTitle" />
+                <Label Text="{Binding ServerText}" StyleClass="Subtitle" />
+            </VerticalStackLayout>
+
+            <!-- ============================ Database ============================ -->
+            <Border StyleClass="Glass">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Target database" StyleClass="Title" />
+                    <CollectionView ItemsSource="{Binding Databases}"
+                                    SelectionMode="Single"
+                                    SelectedItem="{Binding SelectedDatabase, Mode=TwoWay}"
+                                    HeightRequest="150">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Border StyleClass="Row" Margin="0,2">
+                                    <Label Text="{Binding .}" FontAttributes="Bold" VerticalOptions="Center" />
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ============================ What to read ============================ -->
+            <Border StyleClass="Glass">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="What should be analyzed?" StyleClass="Title" />
+                    <Label Text="Tables and columns are always included. Everything else is optional — less data means faster, cheaper analyses." StyleClass="Body" />
+
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="12">
+                        <Border Grid.Row="0" Grid.Column="0" StyleClass="Inset" Padding="14,10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Spacing="1"><Label Text="Indexes" StyleClass="Headline" /><Label Text="Columns, uniqueness, filters" StyleClass="Caption" /></VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding IncludeIndexes}" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="0" Grid.Column="1" StyleClass="Inset" Padding="14,10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Spacing="1"><Label Text="Constraints" StyleClass="Headline" /><Label Text="CHECK rules" StyleClass="Caption" /></VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding IncludeConstraints}" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="1" Grid.Column="0" StyleClass="Inset" Padding="14,10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Spacing="1"><Label Text="Views" StyleClass="Headline" /><Label Text="Names and definitions" StyleClass="Caption" /></VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding IncludeViews}" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="1" Grid.Column="1" StyleClass="Inset" Padding="14,10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Spacing="1"><Label Text="Triggers" StyleClass="Headline" /><Label Text="Events, timing, code" StyleClass="Caption" /></VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding IncludeTriggers}" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="2" Grid.Column="0" StyleClass="Inset" Padding="14,10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Spacing="1"><Label Text="Procedures and functions" StyleClass="Headline" /><Label Text="Parameters and code" StyleClass="Caption" /></VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding IncludeRoutines}" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="2" Grid.Column="1" StyleClass="Inset" Padding="14,10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Spacing="1"><Label Text="SQL source code" StyleClass="Headline" /><Label Text="Enables code reviews and SQL-injection checks" StyleClass="Caption" /></VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding IncludeDefinitions}" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="3" Grid.Column="0" StyleClass="Inset" Padding="14,10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Spacing="1"><Label Text="Sample rows" StyleClass="Headline" /><Label Text="3 rows per table (random for small tables)" StyleClass="Caption" /></VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding IncludeSampleData}" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="3" Grid.Column="1" StyleClass="Inset" Padding="14,10" IsVisible="{Binding ShowMaskOption}">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Spacing="1"><Label Text="Privacy shield" StyleClass="Headline" /><Label Text="Mask e-mails, phones, cards, passwords" StyleClass="Caption" /></VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding MaskSampleData}" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ============================ Tables ============================ -->
+            <Border StyleClass="Glass">
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Tables" StyleClass="Title" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="{Binding SelectedTableText}" StyleClass="Accent" VerticalOptions="Center" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+                        <Border Grid.Column="0" StyleClass="Field">
+                            <Entry Text="{Binding SearchQuery}" Placeholder="Search tables…" ClearButtonVisibility="WhileEditing" />
+                        </Border>
+                        <Button Grid.Column="1" Text="All" StyleClass="Small" Command="{Binding SelectAllCommand}" />
+                        <Button Grid.Column="2" Text="None" StyleClass="Small" Command="{Binding SelectNoneCommand}" />
+                        <Button Grid.Column="3" Text="Invert" StyleClass="Small" Command="{Binding InvertSelectionCommand}" />
+                    </Grid>
+
+                    <CollectionView ItemsSource="{Binding FilteredTables}" SelectionMode="None" HeightRequest="300">
+                        <CollectionView.EmptyView>
+                            <Label Text="{Binding BusyText}" StyleClass="Caption" HorizontalTextAlignment="Center" Margin="0,30" />
+                        </CollectionView.EmptyView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:TableSelection">
+                                <Border StyleClass="Row" Margin="0,1">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding ToggleCommand}" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="30,*,Auto" ColumnSpacing="8">
+                                        <Border WidthRequest="22" HeightRequest="22" VerticalOptions="Center" HorizontalOptions="Start"
+                                                StrokeThickness="1.5"
+                                                Stroke="{AppThemeBinding Light={StaticResource TertiaryBrushLight}, Dark={StaticResource TertiaryBrushDark}}"
+                                                Background="{StaticResource Transparent}">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="11" />
+                                            </Border.StrokeShape>
+                                            <Border.Triggers>
+                                                <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource AccentGradient}" />
+                                                    <Setter Property="Stroke" Value="{StaticResource Transparent}" />
+                                                </DataTrigger>
+                                            </Border.Triggers>
+                                            <Label Text="✓" FontSize="12" FontAttributes="Bold" TextColor="White"
+                                                   HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsSelected}" />
+                                        </Border>
+                                        <Label Grid.Column="1" Text="{Binding Name}" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                        <Label Grid.Column="2" Text="{Binding Detail}" StyleClass="Caption" VerticalOptions="Center" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border StyleClass="BannerError" IsVisible="{Binding HasError}">
+                <Label Text="{Binding ErrorMessage}" StyleClass="Danger" FontSize="13" />
+            </Border>
+
+            <!-- ============================ Footer ============================ -->
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                <Button Grid.Column="0" Text="Back" Command="{Binding BackCommand}" />
+
+                <HorizontalStackLayout Grid.Column="1" Spacing="12" HorizontalOptions="End" VerticalOptions="Center" IsVisible="{Binding IsExtracting}">
+                    <ActivityIndicator IsRunning="{Binding IsExtracting}" VerticalOptions="Center" />
+                    <Label Text="{Binding BusyText}" StyleClass="Body" VerticalOptions="Center" />
+                    <Button Text="Cancel" StyleClass="Small" Command="{Binding CancelExtractionCommand}" />
+                </HorizontalStackLayout>
+
+                <Button Grid.Column="2" Text="Extract schema" StyleClass="Primary" Command="{Binding ExtractCommand}" IsEnabled="{Binding IsIdle}" />
+            </Grid>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

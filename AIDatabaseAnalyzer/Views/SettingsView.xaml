@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:AIDatabaseAnalyzer.ViewModels"
+             xmlns:ctl="clr-namespace:AIDatabaseAnalyzer.Controls"
+             x:Class="AIDatabaseAnalyzer.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+    <ScrollView>
+        <VerticalStackLayout x:Name="Column" WidthRequest="700" Spacing="20" Padding="0,30,0,40" HorizontalOptions="Center">
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Settings" StyleClass="LargeTitle" />
+                <Label Text="Choose where the analysis runs and how the app looks." StyleClass="Subtitle" />
+            </VerticalStackLayout>
+
+            <!-- ============================ Provider ============================ -->
+            <Border StyleClass="Glass">
+                <VerticalStackLayout Spacing="16">
+                    <Label Text="AI engine" StyleClass="Title" />
+                    <ctl:SegmentedControl Items="{Binding Providers}" SelectedIndex="{Binding ProviderIndex, Mode=TwoWay}" />
+
+                    <!-- Ollama -->
+                    <VerticalStackLayout Spacing="14" IsVisible="{Binding IsOllama}">
+                        <Label Text="Runs on your computer: nothing leaves this machine." StyleClass="Body" />
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Ollama address" StyleClass="FieldLabel" />
+                            <Border StyleClass="Field"><Entry Text="{Binding OllamaUrl}" Placeholder="http://localhost:11434" /></Border>
+                        </VerticalStackLayout>
+
+                        <Grid ColumnDefinitions="*,160" ColumnSpacing="12">
+                            <VerticalStackLayout Grid.Column="0" Spacing="6">
+                                <Label Text="Model" StyleClass="FieldLabel" />
+                                <Border StyleClass="Field"><Entry Text="{Binding OllamaModel}" Placeholder="qwen2.5-coder" /></Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="6">
+                                <Label Text="Context (tokens)" StyleClass="FieldLabel" />
+                                <Border StyleClass="Field"><Entry Text="{Binding OllamaContext}" Placeholder="32768" Keyboard="Numeric" /></Border>
+                            </VerticalStackLayout>
+                        </Grid>
+                        <Label Text="A larger context lets the model read bigger schemas but needs much more memory. 16 384 – 32 768 fits most laptops." StyleClass="Caption" />
+                        <Button Text="Get Ollama" StyleClass="Link" Command="{Binding OpenOllamaPageCommand}" HorizontalOptions="Start" Padding="0" HeightRequest="28" />
+                    </VerticalStackLayout>
+
+                    <!-- Gemini -->
+                    <VerticalStackLayout Spacing="14" IsVisible="{Binding IsGemini}">
+                        <Label Text="Runs in Google's cloud: schema metadata is sent to Google Gemini. Sample rows are masked unless you turn the privacy shield off." StyleClass="Body" />
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="API key" StyleClass="FieldLabel" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Border Grid.Column="0" StyleClass="Field"><Entry Text="{Binding GeminiApiKey}" IsPassword="{Binding IsKeyHidden}" Placeholder="AIza…" /></Border>
+                                <Button Grid.Column="1" Text="Show / hide" StyleClass="Small" Command="{Binding ToggleKeyVisibilityCommand}" VerticalOptions="Center" />
+                            </Grid>
+                            <Button Text="Get a free API key" StyleClass="Link" Command="{Binding OpenKeyPageCommand}" HorizontalOptions="Start" Padding="0" HeightRequest="28" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Model" StyleClass="FieldLabel" />
+                            <Border StyleClass="Field"><Entry Text="{Binding GeminiModel}" Placeholder="gemini-3.1-flash-lite-preview" /></Border>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+
+                    <Border StyleClass="BannerWarning" IsVisible="{Binding HasSecretsNotice}">
+                        <Label Text="{Binding SecretsNotice}" StyleClass="Warning" FontSize="13" />
+                    </Border>
+
+                    <!-- Test / models -->
+                    <HorizontalStackLayout Spacing="10">
+                        <Button Text="Test connection" Command="{Binding TestCommand}" />
+                        <Button Text="List available models" Command="{Binding RefreshModelsCommand}" />
+                        <ActivityIndicator IsRunning="{Binding IsTesting}" IsVisible="{Binding IsTesting}" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+
+                    <Border StyleClass="BannerSuccess" IsVisible="{Binding TestOk}">
+                        <Label Text="{Binding TestMessage}" StyleClass="Success" FontSize="13" />
+                    </Border>
+                    <Border StyleClass="BannerError" IsVisible="{Binding TestFailed}">
+                        <Label Text="{Binding TestMessage}" StyleClass="Danger" FontSize="13" />
+                    </Border>
+
+                    <CollectionView ItemsSource="{Binding AvailableModels}" SelectionMode="Single"
+                                    SelectedItem="{Binding SelectedModel, Mode=TwoWay}" HeightRequest="190"
+                                    IsVisible="{Binding HasModels}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Border StyleClass="Row" Margin="0,1" Padding="12,7">
+                                    <Label Text="{Binding .}" StyleClass="Mono" VerticalOptions="Center" />
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ============================ Appearance ============================ -->
+            <Border StyleClass="Glass">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="Appearance" StyleClass="Title" />
+                    <ctl:SegmentedControl Items="{Binding Themes}" SelectedIndex="{Binding ThemeIndex, Mode=TwoWay}" />
+                    <Label Text="“System” follows your operating system and switches between light and dark automatically." StyleClass="Caption" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ============================ Privacy ============================ -->
+            <Border StyleClass="Glass">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="Privacy" StyleClass="Title" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Privacy shield for sample rows" StyleClass="Headline" />
+                            <Label Text="Masks e-mail addresses, phone numbers, card numbers, national ids and passwords in the sample rows read from your database (default for new extractions)." StyleClass="Caption" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding MaskSampleData}" VerticalOptions="Center" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <Label Text="{Binding VersionText}" StyleClass="Caption" VerticalOptions="Center" />
+                <Button Grid.Column="1" Text="Save settings" StyleClass="Primary" Command="{Binding SaveCommand}" />
+            </Grid>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

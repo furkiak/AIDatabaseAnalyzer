@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:AIDatabaseAnalyzer.ViewModels"
+             xmlns:ctl="clr-namespace:AIDatabaseAnalyzer.Controls"
+             xmlns:models="clr-namespace:AIDatabaseAnalyzer.Models"
+             x:Class="AIDatabaseAnalyzer.Views.ConnectView"
+             x:DataType="vm:ConnectViewModel">
+
+    <ScrollView>
+        <VerticalStackLayout x:Name="Column" WidthRequest="700" Spacing="22" Padding="0,30,0,40" HorizontalOptions="Center">
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Connect" StyleClass="LargeTitle" />
+                <Label Text="Sign in to a SQL Server, PostgreSQL or MySQL server. Nothing is changed — the analyzer only reads metadata." StyleClass="Subtitle" />
+            </VerticalStackLayout>
+
+            <Grid ColumnDefinitions="*,290" ColumnSpacing="20">
+
+                <!-- ============================ Connection form ============================ -->
+                <Border Grid.Column="0" StyleClass="Glass" VerticalOptions="Start">
+                    <VerticalStackLayout Spacing="18">
+
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Database engine" StyleClass="FieldLabel" />
+                            <ctl:SegmentedControl Items="{Binding Engines}" SelectedIndex="{Binding SelectedEngineIndex, Mode=TwoWay}" />
+                        </VerticalStackLayout>
+
+                        <Grid ColumnDefinitions="*,120" ColumnSpacing="12">
+                            <VerticalStackLayout Grid.Column="0" Spacing="6">
+                                <Label Text="Server" StyleClass="FieldLabel" />
+                                <Border StyleClass="Field">
+                                    <Entry Text="{Binding Server}" Placeholder="{Binding ServerPlaceholder}" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="6">
+                                <Label Text="Port" StyleClass="FieldLabel" />
+                                <Border StyleClass="Field">
+                                    <Entry Text="{Binding Port}" Placeholder="{Binding PortPlaceholder}" Keyboard="Numeric" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowIntegratedSecurity}">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="Windows authentication" StyleClass="Headline" />
+                                <Label Text="Use the current Windows account instead of a SQL login." StyleClass="Caption" />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding UseIntegratedSecurity}" VerticalOptions="Center" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" IsVisible="{Binding ShowCredentials}">
+                            <VerticalStackLayout Grid.Column="0" Spacing="6">
+                                <Label Text="Username" StyleClass="FieldLabel" />
+                                <Border StyleClass="Field">
+                                    <Entry Text="{Binding Username}" Placeholder="{Binding UserPlaceholder}" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="6">
+                                <Label Text="Password" StyleClass="FieldLabel" />
+                                <Border StyleClass="Field">
+                                    <Entry Text="{Binding Password}" IsPassword="True" Placeholder="••••••••" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="Trust server certificate" StyleClass="Headline" />
+                                <Label Text="Convenient for local development servers with self-signed certificates. Turn off for production." StyleClass="Caption" />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding TrustServerCertificate}" VerticalOptions="Center" />
+                        </Grid>
+
+                        <Border StyleClass="BannerError" IsVisible="{Binding HasError}">
+                            <Label Text="{Binding ErrorMessage}" StyleClass="Danger" FontSize="13" />
+                        </Border>
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <ActivityIndicator Grid.Column="0" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="Connect" StyleClass="Primary" Command="{Binding ConnectCommand}" />
+                        </Grid>
+
+                        <BoxView StyleClass="Divider" />
+
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Save this connection" StyleClass="Headline" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <Border Grid.Column="0" StyleClass="Field">
+                                    <Entry Text="{Binding ProfileName}" Placeholder="Name (optional)" />
+                                </Border>
+                                <Button Grid.Column="1" Text="Save" StyleClass="Small" Command="{Binding SaveProfileCommand}" />
+                            </Grid>
+                            <HorizontalStackLayout Spacing="10">
+                                <Switch IsToggled="{Binding RememberPassword}" VerticalOptions="Center" />
+                                <Label Text="Remember the password (kept in the system keychain / credential store)" StyleClass="Caption" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- ============================ Saved connections ============================ -->
+                <Border Grid.Column="1" StyleClass="Glass" Padding="18" VerticalOptions="Start">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Saved connections" StyleClass="Headline" />
+
+                        <CollectionView ItemsSource="{Binding Profiles}"
+                                        SelectionMode="Single"
+                                        SelectedItem="{Binding SelectedProfile, Mode=TwoWay}"
+                                        HeightRequest="320">
+                            <CollectionView.EmptyView>
+                                <VerticalStackLayout Padding="6,24" Spacing="6">
+                                    <Label Text="Nothing saved yet" StyleClass="Headline" HorizontalTextAlignment="Center" />
+                                    <Label Text="Fill in the form and press Save to keep a connection here." StyleClass="Caption" HorizontalTextAlignment="Center" />
+                                </VerticalStackLayout>
+                            </CollectionView.EmptyView>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="models:SavedConnection">
+                                    <Border StyleClass="Row" Margin="0,2">
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="{Binding Name}" StyleClass="Headline" LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding Summary}" StyleClass="Caption" LineBreakMode="TailTruncation" />
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+
+                        <Button Text="Delete selected" StyleClass="Danger,Small" Command="{Binding DeleteProfileCommand}" HorizontalOptions="Start" />
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

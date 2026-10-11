@@ -1,94 +1,223 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System;
-using System.Net.Http;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
-using Microsoft.Maui.Storage;
+using AIDatabaseAnalyzer.Services.Infrastructure;
+using AIDatabaseAnalyzer.Services.Llm;
 
 namespace AIDatabaseAnalyzer.ViewModels;
 
+/// <summary>AI provider, models, appearance and privacy defaults.</summary>
 public partial class SettingsViewModel : ObservableObject
 {
-    private readonly HttpClient _httpClient;
+    private readonly ISettingsService _settings;
+    private readonly ILlmService _llm;
+    private readonly IThemeService _theme;
+    private readonly INoticeService _notices;
+    private CancellationTokenSource? _testCts;
+    private bool _loaded;
 
-    [ObservableProperty] private bool isOllamaSelected;
-    [ObservableProperty] private bool isGeminiSelected;
-    [ObservableProperty] private bool isOllamaConfigVisible;
-    [ObservableProperty] private bool isGeminiConfigVisible;
-    [ObservableProperty] private string ollamaUrl;
-    [ObservableProperty] private string ollamaModel;
-    [ObservableProperty] private string geminiApiKey;
-    [ObservableProperty] private string geminiModel;
+    public SettingsViewModel(ISettingsService settings, ILlmService llm, IThemeService theme, INoticeService notices)
+    {
+        _settings = settings;
+        _llm = llm;
+        _theme = theme;
+        _notices = notices;
+        _ = LoadAsync();
+    }
+
+    public IReadOnlyList<string> Providers { get; } = new[] { "Local · Ollama", "Cloud · Gemini" };
+    public IReadOnlyList<string> Themes { get; } = new[] { "System", "Light", "Dark" };
+
+    public ObservableCollection<string> AvailableModels { get; } = new();
+
+    [NotifyPropertyChangedFor(nameof(IsOllama))]
+    [NotifyPropertyChangedFor(nameof(IsGemini))]
+    [ObservableProperty] private int providerIndex;
+
+    [ObservableProperty] private string ollamaUrl = "";
+    [ObservableProperty] private string ollamaModel = "";
+    [ObservableProperty] private string ollamaContext = "32768";
+    [ObservableProperty] private string geminiModel = "";
+    [ObservableProperty] private string geminiApiKey = "";
+    [ObservableProperty] private bool isKeyHidden = true;
+
+    [ObservableProperty] private int themeIndex;
+    [ObservableProperty] private bool maskSampleData = true;
+
+    [ObservableProperty] private string? selectedModel;
+
     [ObservableProperty] private bool isTesting;
+    [ObservableProperty] private string testMessage = "";
 
-    public SettingsViewModel(HttpClient httpClient)
+    [NotifyPropertyChangedFor(nameof(TestOk))]
+    [NotifyPropertyChangedFor(nameof(TestFailed))]
+    [ObservableProperty] private bool hasTestMessage;
+
+    [NotifyPropertyChangedFor(nameof(TestOk))]
+    [NotifyPropertyChangedFor(nameof(TestFailed))]
+    [ObservableProperty] private bool testSucceeded;
+
+    public bool TestOk => HasTestMessage && TestSucceeded;
+    public bool TestFailed => HasTestMessage && !TestSucceeded;
+
+    [ObservableProperty] private string secretsNotice = "";
+    [ObservableProperty] private bool hasSecretsNotice;
+
+    public bool HasModels => AvailableModels.Count > 0;
+    public bool IsOllama => ProviderIndex == 0;
+    public bool IsGemini => ProviderIndex == 1;
+
+    public string VersionText => $"Version {AppInfo.Current.VersionString} (build {AppInfo.Current.BuildString})";
+
+    private async Task LoadAsync()
     {
-        _httpClient = httpClient;
-        _httpClient.Timeout = TimeSpan.FromSeconds(20);
-        _ = LoadSettingsAsync();
+        await _settings.InitializeAsync();
+
+        ProviderIndex = _settings.Provider == LlmProvider.Gemini ? 1 : 0;
+        OllamaUrl = _settings.OllamaUrl;
+        OllamaModel = _settings.OllamaModel;
+        OllamaContext = _settings.OllamaContext.ToString();
+        GeminiModel = _settings.GeminiModel;
+        GeminiApiKey = _settings.GeminiApiKey;
+        ThemeIndex = (int)_settings.Theme;
+        MaskSampleData = _settings.MaskSampleData;
+
+        HasSecretsNotice = !_settings.SecretsArePersistent;
+        SecretsNotice = "Secure storage is not available on this system, so the API key is kept only until you close the app.";
+        _loaded = true;
     }
 
-    private async Task LoadSettingsAsync()
+    partial void OnProviderIndexChanged(int value)
     {
-        string engine = Preferences.Get("SelectedEngine", "Ollama");
-        IsGeminiSelected = engine == "Gemini";
-        IsOllamaSelected = !IsGeminiSelected;
-
-        OllamaUrl = Preferences.Get("OllamaUrl", "http://localhost:11434");
-        OllamaModel = Preferences.Get("OllamaModel", "qwen2.5-coder");
-        GeminiModel = Preferences.Get("GeminiModel", "gemini-3.1-flash-lite-preview");
-
-        GeminiApiKey = await SecureStorage.Default.GetAsync("GeminiApiKey") ?? "";
-
-        UpdateVisibility();
+        AvailableModels.Clear();
+        OnPropertyChanged(nameof(HasModels));
+        HasTestMessage = false;
     }
 
-    partial void OnIsOllamaSelectedChanged(bool value) => UpdateVisibility();
-    private void UpdateVisibility()
+    partial void OnThemeIndexChanged(int value)
     {
-        IsOllamaConfigVisible = IsOllamaSelected;
-        IsGeminiConfigVisible = !IsOllamaSelected;
+        if (!_loaded) return;
+        var mode = (ThemeMode)Math.Clamp(value, 0, 2);
+        _settings.Theme = mode;
+        _theme.Apply(mode);
+    }
+
+    partial void OnMaskSampleDataChanged(bool value)
+    {
+        if (_loaded) _settings.MaskSampleData = value;
+    }
+
+    partial void OnSelectedModelChanged(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return;
+        if (IsGemini) GeminiModel = value;
+        else OllamaModel = value;
+    }
+
+    private LlmSettings Draft()
+    {
+        int context = int.TryParse(OllamaContext.Trim(), out int c) ? Math.Clamp(c, 2048, 1_000_000) : 32768;
+        return new LlmSettings
+        {
+            Provider = IsGemini ? LlmProvider.Gemini : LlmProvider.Ollama,
+            OllamaUrl = OllamaUrl.Trim(),
+            OllamaModel = OllamaModel.Trim(),
+            OllamaContext = context,
+            GeminiModel = GeminiModel.Trim(),
+            GeminiApiKey = GeminiApiKey.Trim()
+        };
+    }
+
+    // ------------------------------------------------------------------ commands
+
+    [RelayCommand]
+    private async Task SaveAsync()
+    {
+        var draft = Draft();
+        _settings.Provider = draft.Provider;
+        _settings.OllamaUrl = draft.OllamaUrl;
+        _settings.OllamaModel = draft.OllamaModel;
+        _settings.OllamaContext = draft.OllamaContext;
+        _settings.GeminiModel = draft.GeminiModel;
+        await _settings.SetGeminiApiKeyAsync(draft.GeminiApiKey);
+
+        OllamaContext = draft.OllamaContext.ToString();
+        HasSecretsNotice = !_settings.SecretsArePersistent;
+        _notices.Show("Settings saved.", NoticeKind.Success);
     }
 
     [RelayCommand]
-    private async Task SaveSettingsAsync()
+    private void ToggleKeyVisibility() => IsKeyHidden = !IsKeyHidden;
+
+    [RelayCommand]
+    private async Task TestAsync()
     {
-        Preferences.Set("SelectedEngine", IsOllamaSelected ? "Ollama" : "Gemini");
-        Preferences.Set("OllamaUrl", OllamaUrl);
-        Preferences.Set("OllamaModel", OllamaModel);
-        Preferences.Set("GeminiModel", GeminiModel);
+        if (IsTesting) return;
+        _testCts?.Cancel();
+        var cts = _testCts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
 
-        if (!string.IsNullOrWhiteSpace(GeminiApiKey))
-            await SecureStorage.Default.SetAsync("GeminiApiKey", GeminiApiKey);
+        IsTesting = true;
+        HasTestMessage = false;
+        try
+        {
+            var result = await _llm.TestAsync(Draft(), cts.Token);
+            TestSucceeded = result.Success;
+            TestMessage = result.Message;
+            HasTestMessage = true;
 
-        await Application.Current.MainPage.DisplayAlert("Success", "Settings saved securely.", "OK");
+            if (result.Models.Count > 0) FillModels(result.Models);
+        }
+        catch (OperationCanceledException)
+        {
+            TestSucceeded = false;
+            TestMessage = "The test timed out.";
+            HasTestMessage = true;
+        }
+        finally
+        {
+            IsTesting = false;
+        }
     }
 
     [RelayCommand]
-    private async Task TestConnectionAsync()
+    private async Task RefreshModelsAsync()
     {
         if (IsTesting) return;
         IsTesting = true;
+        HasTestMessage = false;
         try
         {
-            if (IsOllamaSelected)
-            {
-                var res = await _httpClient.GetAsync($"{OllamaUrl?.TrimEnd('/')}/api/tags");
-                res.EnsureSuccessStatusCode();
-                await Application.Current.MainPage.DisplayAlert("Success", "Ollama is active!", "OK");
-            }
-            else
-            {
-                string url = $"https://generativelanguage.googleapis.com/v1beta/models/{GeminiModel}:generateContent?key={GeminiApiKey}";
-                var body = new { contents = new[] { new { parts = new[] { new { text = "hi" } } } } };
-                var res = await _httpClient.PostAsync(url, new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"));
-                if (!res.IsSuccessStatusCode) throw new Exception(await res.Content.ReadAsStringAsync());
-                await Application.Current.MainPage.DisplayAlert("Success", "Gemini connection OK!", "OK");
-            }
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+            var models = await _llm.ListModelsAsync(Draft(), cts.Token);
+            FillModels(models);
+            TestSucceeded = models.Count > 0;
+            TestMessage = models.Count > 0 ? $"{models.Count} models available — pick one from the list." : "No models were returned.";
+            HasTestMessage = true;
         }
-        catch (Exception ex) { await Application.Current.MainPage.DisplayAlert("Fail", ex.Message, "OK"); }
-        finally { IsTesting = false; }
+        catch (Exception ex) when (ex is LlmException or OperationCanceledException)
+        {
+            TestSucceeded = false;
+            TestMessage = ex is LlmException ? ex.Message : "The request timed out.";
+            HasTestMessage = true;
+        }
+        finally
+        {
+            IsTesting = false;
+        }
     }
+
+    private void FillModels(IReadOnlyList<string> models)
+    {
+        AvailableModels.Clear();
+        foreach (string model in models) AvailableModels.Add(model);
+        OnPropertyChanged(nameof(HasModels));
+    }
+
+    [RelayCommand]
+    private async Task OpenKeyPageAsync() =>
+        await Launcher.Default.TryOpenAsync(new Uri("https://aistudio.google.com/apikey"));
+
+    [RelayCommand]
+    private async Task OpenOllamaPageAsync() =>
+        await Launcher.Default.TryOpenAsync(new Uri("https://ollama.com/download"));
 }

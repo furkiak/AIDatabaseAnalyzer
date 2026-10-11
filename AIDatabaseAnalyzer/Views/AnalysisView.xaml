@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:AIDatabaseAnalyzer.ViewModels"
+             xmlns:ctl="clr-namespace:AIDatabaseAnalyzer.Controls"
+             xmlns:models="clr-namespace:AIDatabaseAnalyzer.Models"
+             x:Class="AIDatabaseAnalyzer.Views.AnalysisView"
+             x:DataType="vm:AnalysisViewModel">
+
+    <ScrollView>
+        <VerticalStackLayout x:Name="Column" WidthRequest="700" Spacing="20" Padding="0,30,0,40" HorizontalOptions="Center">
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="AI Analysis" StyleClass="LargeTitle" />
+                <Label Text="Pick the questions an expert would ask about your schema. Each one is answered separately, then summarised into an action plan." StyleClass="Subtitle" />
+            </VerticalStackLayout>
+
+            <!-- ============================ Provider ============================ -->
+            <Border StyleClass="Glass" Padding="20">
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="14">
+                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                            <Label Text="AI model" StyleClass="Overline" />
+                            <Label Text="{Binding ProviderText}" StyleClass="Headline" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                            <Label Text="Report language" StyleClass="Overline" />
+                            <ctl:SegmentedControl Items="{Binding Languages}" SelectedIndex="{Binding LanguageIndex, Mode=TwoWay}" />
+                        </VerticalStackLayout>
+                        <Button Grid.Column="2" Text="Change model" StyleClass="Small" Command="{Binding OpenSettingsCommand}" VerticalOptions="End" />
+                    </Grid>
+                    <Border StyleClass="BannerWarning" IsVisible="{Binding ProviderWarningVisible}">
+                        <Label Text="{Binding ProviderWarning}" StyleClass="Warning" FontSize="13" />
+                    </Border>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ============================ Topics (configuring) ============================ -->
+            <Border StyleClass="Glass" IsVisible="{Binding IsConfiguring}">
+                <VerticalStackLayout Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Topics" StyleClass="Title" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="{Binding SelectionText}" StyleClass="Accent" VerticalOptions="Center" />
+                    </Grid>
+
+                    <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding CategoryChips}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FilterChip">
+                                <Border StyleClass="Pill" Margin="0,0,8,6">
+                                    <Border.Triggers>
+                                        <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource AccentGradient}" />
+                                            <Setter Property="Stroke" Value="{StaticResource Transparent}" />
+                                        </DataTrigger>
+                                    </Border.Triggers>
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding SelectCommand}" />
+                                    </Border.GestureRecognizers>
+                                    <Label Text="{Binding Text}" FontSize="13" FontAttributes="Bold">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="TextColor" Value="White" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <Border Grid.Column="0" StyleClass="Field">
+                            <Entry Text="{Binding SearchQuery}" Placeholder="Search topics…" ClearButtonVisibility="WhileEditing" />
+                        </Border>
+                        <Button Grid.Column="1" Text="Select shown" StyleClass="Small" Command="{Binding SelectVisibleCommand}" />
+                        <Button Grid.Column="2" Text="Clear shown" StyleClass="Small" Command="{Binding ClearVisibleCommand}" />
+                    </Grid>
+
+                    <CollectionView ItemsSource="{Binding VisibleTopics}" SelectionMode="None" HeightRequest="400">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:AnalysisTopic">
+                                <Border StyleClass="Row" Margin="0,1">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding ToggleCommand}" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="30,*,Auto,Auto" ColumnSpacing="10">
+                                        <Border WidthRequest="22" HeightRequest="22" VerticalOptions="Center" HorizontalOptions="Start"
+                                                StrokeThickness="1.5"
+                                                Stroke="{AppThemeBinding Light={StaticResource TertiaryBrushLight}, Dark={StaticResource TertiaryBrushDark}}"
+                                                Background="{StaticResource Transparent}">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="11" />
+                                            </Border.StrokeShape>
+                                            <Border.Triggers>
+                                                <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource AccentGradient}" />
+                                                    <Setter Property="Stroke" Value="{StaticResource Transparent}" />
+                                                </DataTrigger>
+                                            </Border.Triggers>
+                                            <Label Text="✓" FontSize="12" FontAttributes="Bold" TextColor="White"
+                                                   HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsSelected}" />
+                                        </Border>
+                                        <Label Grid.Column="1" Text="{Binding Title}" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                        <Label Grid.Column="2" Text="{Binding Category}" StyleClass="Caption" VerticalOptions="Center" />
+                                        <Button Grid.Column="3" Text="✕" StyleClass="Danger,Small" WidthRequest="34" Padding="0" Command="{Binding RemoveCommand}" IsVisible="{Binding IsCustom}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Border Grid.Column="0" StyleClass="Field">
+                            <Entry Text="{Binding CustomPrompt}" Placeholder="Add your own question, e.g. “Which tables break our ‘no soft delete’ policy?”" ReturnCommand="{Binding AddCustomCommand}" />
+                        </Border>
+                        <Button Grid.Column="1" Text="Add prompt" StyleClass="Small" Command="{Binding AddCustomCommand}" />
+                    </Grid>
+
+                    <Label Text="{Binding EstimateText}" StyleClass="Caption" />
+
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                        <Button Grid.Column="0" Text="Back" Command="{Binding BackToInsightsCommand}" />
+                        <Button Grid.Column="2" Text="Run AI analysis" StyleClass="Primary" Command="{Binding RunCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ============================ Progress & result ============================ -->
+            <Border StyleClass="Glass" IsVisible="{Binding HasRun}">
+                <VerticalStackLayout Spacing="16">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="{Binding StatusText}" StyleClass="Title" VerticalOptions="Center" />
+                        <ActivityIndicator Grid.Column="1" IsRunning="{Binding IsRunning}" IsVisible="{Binding IsRunning}" VerticalOptions="Center" />
+                    </Grid>
+
+                    <ProgressBar Progress="{Binding Progress}" HeightRequest="8" />
+
+                    <Border StyleClass="BannerSuccess" IsVisible="{Binding HasResult}">
+                        <Label Text="{Binding ResultText}" StyleClass="Success" FontSize="13.5" />
+                    </Border>
+
+                    <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding RunItems}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="models:AnalysisTopic">
+                                <Border StyleClass="Inset" Padding="14,10">
+                                    <VerticalStackLayout Spacing="4">
+                                        <Grid ColumnDefinitions="92,*" ColumnSpacing="10">
+                                            <Label Grid.Column="0" Text="{Binding StatusText}" FontSize="12" FontAttributes="Bold" VerticalOptions="Center"
+                                                   TextColor="{AppThemeBinding Light={StaticResource TextTertiaryLight}, Dark={StaticResource TextTertiaryDark}}">
+                                                <Label.Triggers>
+                                                    <DataTrigger TargetType="Label" Binding="{Binding IsProcessing}" Value="True">
+                                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource AccentDark}}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="Label" Binding="{Binding IsCompleted}" Value="True">
+                                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SuccessLight}, Dark={StaticResource SuccessDark}}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="Label" Binding="{Binding IsFailed}" Value="True">
+                                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+                                                    </DataTrigger>
+                                                </Label.Triggers>
+                                            </Label>
+                                            <Label Grid.Column="1" Text="{Binding Title}" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                        </Grid>
+                                        <Label Text="{Binding ErrorMessage}" StyleClass="Danger" FontSize="12" Margin="102,0,0,0" IsVisible="{Binding IsFailed}" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <HorizontalStackLayout Spacing="10">
+                        <Button Text="Cancel" StyleClass="Danger" Command="{Binding CancelCommand}" IsVisible="{Binding IsRunning}" />
+                        <Button Text="Open report" StyleClass="Primary" Command="{Binding OpenReportCommand}" IsVisible="{Binding HasResult}" />
+                        <Button Text="Retry failed topics" Command="{Binding RetryFailedCommand}" IsVisible="{Binding CanRetry}" />
+                        <Button Text="New analysis" Command="{Binding NewRunCommand}" IsVisible="{Binding HasResult}" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

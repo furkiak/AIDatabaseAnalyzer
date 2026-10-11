@@ -1,45 +1,133 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <?xaml-comp compile="true" ?>
-<ResourceDictionary 
+<ResourceDictionary
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <!-- Note: For Android please see also Platforms\Android\Resources\values\colors.xml -->
+    <!-- ===================================================================
+         Design tokens — "Liquid Glass".
+         Every surface is translucent and sits on a soft aurora background;
+         light and dark variants are chosen with AppThemeBinding in Styles.xaml.
+         =================================================================== -->
 
-    <Color x:Key="Primary">#512BD4</Color>
-    <Color x:Key="PrimaryDark">#ac99ea</Color>
-    <Color x:Key="PrimaryDarkText">#242424</Color>
-    <Color x:Key="Secondary">#DFD8F7</Color>
-    <Color x:Key="SecondaryDarkText">#9880e5</Color>
-    <Color x:Key="Tertiary">#2B0B98</Color>
+    <!-- Text -->
+    <Color x:Key="TextPrimaryLight">#1D1D1F</Color>
+    <Color x:Key="TextPrimaryDark">#F5F5F7</Color>
+    <Color x:Key="TextSecondaryLight">#55555E</Color>
+    <Color x:Key="TextSecondaryDark">#B7B7C2</Color>
+    <Color x:Key="TextTertiaryLight">#86868E</Color>
+    <Color x:Key="TextTertiaryDark">#8B8B96</Color>
 
-    <Color x:Key="White">White</Color>
-    <Color x:Key="Black">Black</Color>
-    <Color x:Key="Magenta">#D600AA</Color>
-    <Color x:Key="MidnightBlue">#190649</Color>
-    <Color x:Key="OffBlack">#1f1f1f</Color>
+    <!-- Accent -->
+    <Color x:Key="AccentLight">#0A6CFF</Color>
+    <Color x:Key="AccentDark">#4C9DFF</Color>
+    <Color x:Key="AccentStart">#0A84FF</Color>
+    <Color x:Key="AccentEnd">#5E5CE6</Color>
+    <Color x:Key="OnAccent">#FFFFFF</Color>
 
-    <Color x:Key="Gray100">#E1E1E1</Color>
-    <Color x:Key="Gray200">#C8C8C8</Color>
-    <Color x:Key="Gray300">#ACACAC</Color>
-    <Color x:Key="Gray400">#919191</Color>
-    <Color x:Key="Gray500">#6E6E6E</Color>
-    <Color x:Key="Gray600">#404040</Color>
-    <Color x:Key="Gray900">#212121</Color>
-    <Color x:Key="Gray950">#141414</Color>
+    <!-- Semantic -->
+    <Color x:Key="SuccessLight">#1F9D55</Color>
+    <Color x:Key="SuccessDark">#43D17A</Color>
+    <Color x:Key="WarningLight">#B86E00</Color>
+    <Color x:Key="WarningDark">#FFB340</Color>
+    <Color x:Key="DangerLight">#D92D20</Color>
+    <Color x:Key="DangerDark">#FF6B61</Color>
 
-    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
-    <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource Secondary}"/>
-    <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource Tertiary}"/>
-    <SolidColorBrush x:Key="WhiteBrush" Color="{StaticResource White}"/>
-    <SolidColorBrush x:Key="BlackBrush" Color="{StaticResource Black}"/>
+    <!-- Window base colour (shown before the aurora is drawn) -->
+    <Color x:Key="WindowBaseLight">#EEF2FB</Color>
+    <Color x:Key="WindowBaseDark">#0A0E1B</Color>
 
-    <SolidColorBrush x:Key="Gray100Brush" Color="{StaticResource Gray100}"/>
-    <SolidColorBrush x:Key="Gray200Brush" Color="{StaticResource Gray200}"/>
-    <SolidColorBrush x:Key="Gray300Brush" Color="{StaticResource Gray300}"/>
-    <SolidColorBrush x:Key="Gray400Brush" Color="{StaticResource Gray400}"/>
-    <SolidColorBrush x:Key="Gray500Brush" Color="{StaticResource Gray500}"/>
-    <SolidColorBrush x:Key="Gray600Brush" Color="{StaticResource Gray600}"/>
-    <SolidColorBrush x:Key="Gray900Brush" Color="{StaticResource Gray900}"/>
-    <SolidColorBrush x:Key="Gray950Brush" Color="{StaticResource Gray950}"/>
+    <!-- Aurora background -->
+    <LinearGradientBrush x:Key="WindowBgLight" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#E7EFFF" Offset="0.0" />
+        <GradientStop Color="#F3ECFF" Offset="0.55" />
+        <GradientStop Color="#E3F7F0" Offset="1.0" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="WindowBgDark" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#090D1B" Offset="0.0" />
+        <GradientStop Color="#15122F" Offset="0.55" />
+        <GradientStop Color="#0A2130" Offset="1.0" />
+    </LinearGradientBrush>
+
+    <RadialGradientBrush x:Key="BlobBlueLight" Center="0.5,0.5" Radius="0.5">
+        <GradientStop Color="#660A84FF" Offset="0.0" />
+        <GradientStop Color="#000A84FF" Offset="1.0" />
+    </RadialGradientBrush>
+    <RadialGradientBrush x:Key="BlobBlueDark" Center="0.5,0.5" Radius="0.5">
+        <GradientStop Color="#880A84FF" Offset="0.0" />
+        <GradientStop Color="#000A84FF" Offset="1.0" />
+    </RadialGradientBrush>
+    <RadialGradientBrush x:Key="BlobVioletLight" Center="0.5,0.5" Radius="0.5">
+        <GradientStop Color="#55BF5AF2" Offset="0.0" />
+        <GradientStop Color="#00BF5AF2" Offset="1.0" />
+    </RadialGradientBrush>
+    <RadialGradientBrush x:Key="BlobVioletDark" Center="0.5,0.5" Radius="0.5">
+        <GradientStop Color="#707D7AFF" Offset="0.0" />
+        <GradientStop Color="#007D7AFF" Offset="1.0" />
+    </RadialGradientBrush>
+    <RadialGradientBrush x:Key="BlobMintLight" Center="0.5,0.5" Radius="0.5">
+        <GradientStop Color="#4430D158" Offset="0.0" />
+        <GradientStop Color="#0030D158" Offset="1.0" />
+    </RadialGradientBrush>
+    <RadialGradientBrush x:Key="BlobMintDark" Center="0.5,0.5" Radius="0.5">
+        <GradientStop Color="#5530D5C8" Offset="0.0" />
+        <GradientStop Color="#0030D5C8" Offset="1.0" />
+    </RadialGradientBrush>
+
+    <!-- Glass surfaces -->
+    <SolidColorBrush x:Key="GlassFillLight" Color="#B8FFFFFF" />
+    <SolidColorBrush x:Key="GlassFillDark" Color="#16FFFFFF" />
+    <SolidColorBrush x:Key="GlassStrongLight" Color="#DEFFFFFF" />
+    <SolidColorBrush x:Key="GlassStrongDark" Color="#24FFFFFF" />
+
+    <!-- Specular edge: bright at the top-left, fading towards the bottom-right -->
+    <LinearGradientBrush x:Key="GlassStrokeLight" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#FFFFFFFF" Offset="0.0" />
+        <GradientStop Color="#66FFFFFF" Offset="0.5" />
+        <GradientStop Color="#2A6B7A99" Offset="1.0" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="GlassStrokeDark" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#55FFFFFF" Offset="0.0" />
+        <GradientStop Color="#14FFFFFF" Offset="0.5" />
+        <GradientStop Color="#2AFFFFFF" Offset="1.0" />
+    </LinearGradientBrush>
+
+    <!-- Inputs and inset panels -->
+    <SolidColorBrush x:Key="FieldFillLight" Color="#A6FFFFFF" />
+    <SolidColorBrush x:Key="FieldFillDark" Color="#14FFFFFF" />
+    <SolidColorBrush x:Key="FieldStrokeLight" Color="#26606A88" />
+    <SolidColorBrush x:Key="FieldStrokeDark" Color="#30FFFFFF" />
+    <SolidColorBrush x:Key="InsetFillLight" Color="#66FFFFFF" />
+    <SolidColorBrush x:Key="InsetFillDark" Color="#0FFFFFFF" />
+
+    <!-- Selection / hover -->
+    <SolidColorBrush x:Key="AccentSoftLight" Color="#1F0A6CFF" />
+    <SolidColorBrush x:Key="AccentSoftDark" Color="#334C9DFF" />
+    <SolidColorBrush x:Key="HoverLight" Color="#12000000" />
+    <SolidColorBrush x:Key="HoverDark" Color="#1AFFFFFF" />
+
+    <!-- Hairlines -->
+    <Color x:Key="HairlineLight">#1A3C3C43</Color>
+    <Color x:Key="HairlineDark">#1FFFFFFF</Color>
+    <SolidColorBrush x:Key="HairlineBrushLight" Color="#1A3C3C43" />
+    <SolidColorBrush x:Key="HairlineBrushDark" Color="#1FFFFFFF" />
+    <SolidColorBrush x:Key="TertiaryBrushLight" Color="#86868E" />
+    <SolidColorBrush x:Key="TertiaryBrushDark" Color="#8B8B96" />
+
+    <!-- Tinted banners -->
+    <SolidColorBrush x:Key="DangerSoftLight" Color="#1FD92D20" />
+    <SolidColorBrush x:Key="DangerSoftDark" Color="#33FF6B61" />
+    <SolidColorBrush x:Key="WarningSoftLight" Color="#26E59A00" />
+    <SolidColorBrush x:Key="WarningSoftDark" Color="#33FFB340" />
+    <SolidColorBrush x:Key="SuccessSoftLight" Color="#1F1F9D55" />
+    <SolidColorBrush x:Key="SuccessSoftDark" Color="#3343D17A" />
+    <SolidColorBrush x:Key="InfoSoftLight" Color="#1A0A6CFF" />
+    <SolidColorBrush x:Key="InfoSoftDark" Color="#2E4C9DFF" />
+
+    <!-- Primary action: a liquid blue-to-indigo gradient -->
+    <LinearGradientBrush x:Key="AccentGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#0A84FF" Offset="0.0" />
+        <GradientStop Color="#5E5CE6" Offset="1.0" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="Transparent" Color="Transparent" />
 </ResourceDictionary>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:AIDatabaseAnalyzer.ViewModels"
+             x:Class="AIDatabaseAnalyzer.Views.DiagramView"
+             x:DataType="vm:DiagramViewModel">
+
+    <Grid RowDefinitions="Auto,*" RowSpacing="14" Padding="0,26,0,6">
+        <Border Grid.Row="0" StyleClass="Glass" Padding="14,10">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                <Button Grid.Column="0" Text="‹  Insights" StyleClass="Small" Command="{Binding CloseCommand}" />
+                <Label Grid.Column="1" Text="{Binding Title}" StyleClass="Headline" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                <HorizontalStackLayout Grid.Column="2" Spacing="8">
+                    <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}" VerticalOptions="Center" />
+                    <Button Text="Export SVG" StyleClass="Primary,Small" Command="{Binding ExportSvgCommand}" />
+                    <Button Text="Export interactive HTML" StyleClass="Small" Command="{Binding ExportHtmlCommand}" />
+                </HorizontalStackLayout>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" StyleClass="Glass" Padding="0">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="14" />
+            </Border.StrokeShape>
+            <WebView x:Name="Browser">
+                <WebView.Source>
+                    <HtmlWebViewSource Html="{Binding HtmlSource}" />
+                </WebView.Source>
+            </WebView>
+        </Border>
+    </Grid>
+</ContentView>

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
     <!-- See https://aka.ms/maui-publish-app-store#add-entitlements for more information about adding entitlements.-->
@@ -6,8 +6,12 @@
         <!-- App Sandbox must be enabled to distribute a MacCatalyst app through the Mac App Store. -->
         <key>com.apple.security.app-sandbox</key>
         <true/>
-        <!-- When App Sandbox is enabled, this value is required to open outgoing network connections. -->
+        <!-- When App Sandbox is enabled, this value is required to open outgoing network connections
+             (database servers, Ollama and the Gemini API). -->
         <key>com.apple.security.network.client</key>
+        <true/>
+        <!-- Lets the "Save as…" dialogs write PDF / Markdown / SVG exports to a folder the user picks. -->
+        <key>com.apple.security.files.user-selected.read-write</key>
         <true/>
     </dict>
 </plist>

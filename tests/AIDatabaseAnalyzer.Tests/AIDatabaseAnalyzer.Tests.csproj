@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!-- Tests for the platform independent core (database access, insights, reports, AI orchestration).
+	     The sources are linked, so the tests run on any OS without the MAUI workload. -->
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+		<RootNamespace>AIDatabaseAnalyzer.Tests</RootNamespace>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<App>$(MSBuildThisFileDirectory)..\..\AIDatabaseAnalyzer\</App>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Compile Include="$(App)Models\**\*.cs" LinkBase="App\Models" />
+		<Compile Include="$(App)Services\Database\**\*.cs" LinkBase="App\Services\Database" />
+		<Compile Include="$(App)Services\Insights\**\*.cs" LinkBase="App\Services\Insights" />
+		<Compile Include="$(App)Services\Markdown\**\*.cs" LinkBase="App\Services\Markdown" />
+		<Compile Include="$(App)Services\Reporting\**\*.cs" LinkBase="App\Services\Reporting" />
+		<Compile Include="$(App)Services\Llm\**\*.cs" LinkBase="App\Services\Llm" />
+		<EmbeddedResource Include="$(App)Resources\Web\diagram.html" LogicalName="AIDatabaseAnalyzer.Web.diagram.html" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+		<PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.7" />
+		<PackageReference Include="MySqlConnector" Version="2.6.2" />
+		<PackageReference Include="Npgsql" Version="10.0.3" />
+		<PackageReference Include="QuestPDF" Version="2026.9.1" />
+
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+		<PackageReference Include="xunit" Version="2.9.3" />
+		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Xunit" />
+	</ItemGroup>
+
+</Project>

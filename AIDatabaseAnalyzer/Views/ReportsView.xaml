@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:AIDatabaseAnalyzer.ViewModels"
+             x:Class="AIDatabaseAnalyzer.Views.ReportsView"
+             x:DataType="vm:ReportsViewModel">
+
+    <Grid>
+        <!-- ============================ History ============================ -->
+        <ScrollView IsVisible="{Binding IsListVisible}">
+            <VerticalStackLayout x:Name="Column" WidthRequest="700" Spacing="20" Padding="0,30,0,40" HorizontalOptions="Center">
+
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                    <VerticalStackLayout Spacing="4" VerticalOptions="Center">
+                        <Label Text="Reports" StyleClass="LargeTitle" />
+                        <Label Text="Every analysis is saved here. Re-open it any time and export it as PDF, Markdown or HTML." StyleClass="Subtitle" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" Text="Show folder" StyleClass="Small" Command="{Binding OpenFolderCommand}" VerticalOptions="Center" />
+                </Grid>
+
+                <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Items}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ReportItem">
+                            <Border StyleClass="Glass" Padding="20,16">
+                                <Grid ColumnDefinitions="64,*,Auto" ColumnSpacing="18">
+                                    <Border Grid.Column="0" WidthRequest="60" HeightRequest="60" VerticalOptions="Center" StrokeThickness="0"
+                                            BackgroundColor="{Binding ScoreColor}">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="30" />
+                                        </Border.StrokeShape>
+                                        <VerticalStackLayout VerticalOptions="Center" Spacing="0">
+                                            <Label Text="{Binding ScoreText}" TextColor="White" FontSize="21" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                                        </VerticalStackLayout>
+                                    </Border>
+
+                                    <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                                        <Label Text="{Binding Title}" StyleClass="Title" />
+                                        <Label Text="{Binding Subtitle}" StyleClass="Body" />
+                                        <Label Text="{Binding DateText}" StyleClass="Caption" />
+                                        <Label Text="{Binding SectionsText}" StyleClass="Caption" />
+                                    </VerticalStackLayout>
+
+                                    <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Center">
+                                        <Button Text="Open" StyleClass="Primary,Small" Command="{Binding OpenCommand}" />
+                                        <Button Text="Delete" StyleClass="Danger,Small" Command="{Binding DeleteCommand}" />
+                                    </HorizontalStackLayout>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <Border StyleClass="Glass" IsVisible="{Binding IsEmptyVisible}">
+                    <VerticalStackLayout Spacing="8" Padding="0,20">
+                        <Label Text="No reports yet" StyleClass="Title" HorizontalTextAlignment="Center" />
+                        <Label Text="Run an AI analysis and the finished report appears here." StyleClass="Body" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding FolderText}" StyleClass="Caption" HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- ============================ Viewer ============================ -->
+        <Grid IsVisible="{Binding IsViewing}" RowDefinitions="Auto,*" RowSpacing="14" Padding="0,26,0,6">
+            <Border Grid.Row="0" StyleClass="Glass" Padding="14,10">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Button Grid.Column="0" Text="‹  Reports" StyleClass="Small" Command="{Binding CloseViewerCommand}" />
+                    <Label Grid.Column="1" Text="{Binding ViewerTitle}" StyleClass="Headline" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                    <HorizontalStackLayout Grid.Column="2" Spacing="8">
+                        <Button Text="PDF" StyleClass="Primary,Small" Command="{Binding ExportPdfCommand}" />
+                        <Button Text="Markdown" StyleClass="Small" Command="{Binding ExportMarkdownCommand}" />
+                        <Button Text="HTML" StyleClass="Small" Command="{Binding ExportHtmlCommand}" />
+                        <Button Text="Copy" StyleClass="Small" Command="{Binding CopyMarkdownCommand}" />
+                    </HorizontalStackLayout>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" StyleClass="Glass" Padding="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="14" />
+                </Border.StrokeShape>
+                <WebView x:Name="Viewer">
+                    <WebView.Source>
+                        <HtmlWebViewSource Html="{Binding ViewerHtml}" />
+                    </WebView.Source>
+                </WebView>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentView>
