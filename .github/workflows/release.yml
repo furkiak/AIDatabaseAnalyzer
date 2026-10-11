@@ -32,8 +32,9 @@ permissions:
 concurrency:
   group: release-${{ inputs.version || github.ref }}
 
+# Not "VERSION": MSBuild would read it as the project's Version property.
 env:
-  VERSION: ${{ inputs.version || format('pr{0}', github.event.number) }}
+  RELEASE_VERSION: ${{ inputs.version || format('pr{0}', github.event.number) }}
   BUILD_REF: ${{ inputs.ref || github.sha }}
   PROJECT: AIDatabaseAnalyzer/AIDatabaseAnalyzer.csproj
 
@@ -57,13 +58,13 @@ jobs:
           echo "Building $sha"
 
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
-            [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "::error::'$VERSION' is not a version like 2.1.0"; exit 1; }
-            [ -s "docs/releases/v$VERSION.md" ] || { echo "::error::docs/releases/v$VERSION.md is missing"; exit 1; }
-            if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
-              echo "::error::The tag v$VERSION already exists"; exit 1
+            [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "::error::'$RELEASE_VERSION' is not a version like 2.1.0"; exit 1; }
+            [ -s "docs/releases/v$RELEASE_VERSION.md" ] || { echo "::error::docs/releases/v$RELEASE_VERSION.md is missing"; exit 1; }
+            if git ls-remote --exit-code --tags origin "refs/tags/v$RELEASE_VERSION" > /dev/null; then
+              echo "::error::The tag v$RELEASE_VERSION already exists"; exit 1
             fi
             app=$(git show "$sha:$PROJECT" | sed -n 's|.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*|\1|p')
-            [ "$app" = "${VERSION%%-*}" ] || { echo "::error::The app at $sha says version '$app', not $VERSION"; exit 1; }
+            [ "$app" = "${RELEASE_VERSION%%-*}" ] || { echo "::error::The app at $sha says version '$app', not $RELEASE_VERSION"; exit 1; }
           fi
 
   windows:
@@ -103,7 +104,7 @@ jobs:
         run: |
           New-Item -ItemType Directory dist | Out-Null
           Push-Location publish
-          7z a -tzip -mx=9 "../dist/AIDatabaseAnalyzer-$env:VERSION-windows-x64.zip" "AI Database Analyzer" | Out-Null
+          7z a -tzip -mx=9 "../dist/AIDatabaseAnalyzer-$env:RELEASE_VERSION-windows-x64.zip" "AI Database Analyzer" | Out-Null
           Pop-Location
           Get-ChildItem dist | Format-Table Name, Length
 
@@ -123,17 +124,8 @@ jobs:
           ref: ${{ needs.prepare.outputs.sha }}
 
       - uses: actions/setup-dotnet@v4
-        id: dotnet
         with:
           dotnet-version: 9.0.x
-
-      # The runner also has a newer SDK, which fails to restore the .NET 9 Mac Catalyst target.
-      - name: Use the .NET 9 SDK
-        env:
-          SDK: ${{ steps.dotnet.outputs.dotnet-version }}
-        run: |
-          echo "{\"sdk\":{\"version\":\"$SDK\"}}" > global.json
-          dotnet --version
 
       - name: Install the MAUI workload
         run: dotnet workload install maui
@@ -159,7 +151,6 @@ jobs:
         run: >
           dotnet build "$PROJECT" -f net9.0-maccatalyst -c Release
           -p:EnableCodeSigning=true -p:CodesignKey=- ${XCODE_CHECK:+"$XCODE_CHECK"}
-          || { dotnet restore "$PROJECT" -v detailed | grep -i -E 'error|fail|NU[0-9]{4}|NETSDK' | tail -60; exit 1; }
 
       - name: Package
         run: |
@@ -170,7 +161,7 @@ jobs:
           codesign --verify --deep --strict "$app" && codesign -dv "$app" 2>&1 | grep -E 'Signature|Identifier'
           mkdir -p staging dist
           ditto "$app" "staging/AI Database Analyzer.app"
-          ditto -c -k --sequesterRsrc --keepParent "staging/AI Database Analyzer.app" "dist/AIDatabaseAnalyzer-$VERSION-macos.zip"
+          ditto -c -k --sequesterRsrc --keepParent "staging/AI Database Analyzer.app" "dist/AIDatabaseAnalyzer-$RELEASE_VERSION-macos.zip"
           ls -l dist
 
       - name: Start the app once
@@ -209,12 +200,12 @@ jobs:
           SHA: ${{ needs.prepare.outputs.sha }}
           LATEST: ${{ inputs.latest }}
         run: |
-          notes="docs/releases/v$VERSION.md"
+          notes="docs/releases/v$RELEASE_VERSION.md"
           title=$(sed -n '1s/^# *//p' "$notes")
           tail -n +2 "$notes" > release-notes.md
           (cd dist && sha256sum -- *.zip > SHA256SUMS.txt && cat SHA256SUMS.txt)
-          gh release create "v$VERSION" dist/* \
+          gh release create "v$RELEASE_VERSION" dist/* \
             --target "$SHA" \
-            --title "${title:-v$VERSION}" \
+            --title "${title:-v$RELEASE_VERSION}" \
             --notes-file release-notes.md \
             --latest="$LATEST"
