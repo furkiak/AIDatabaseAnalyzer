@@ -451,13 +451,16 @@ public partial class AnalysisViewModel : ObservableObject
 
         await _reports.SaveAsync(report);
         string pdfNote = "";
-        try
+        if (_pdf.IsSupported)
         {
-            await _pdf.GenerateAsync(report, _reports.PdfPath(report.Id));
-        }
-        catch (Exception ex)
-        {
-            pdfNote = $" (PDF could not be created: {ex.GetBaseException().Message})";
+            try
+            {
+                await _pdf.GenerateAsync(report, _reports.PdfPath(report.Id));
+            }
+            catch (Exception ex)
+            {
+                pdfNote = $" (PDF could not be created: {ex.GetBaseException().Message})";
+            }
         }
 
         _session.LatestReport = report;

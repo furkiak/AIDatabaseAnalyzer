@@ -72,7 +72,7 @@
                     </VerticalStackLayout>
                     <HorizontalStackLayout Grid.Column="2" Spacing="8">
                         <Button Text="Diagram" StyleClass="Small" Command="{Binding OpenDiagramCommand}" IsVisible="{Binding IsLinked}" />
-                        <Button Text="PDF" StyleClass="Primary,Small" Command="{Binding ExportPdfCommand}" />
+                        <Button Text="PDF" StyleClass="Primary,Small" Command="{Binding ExportPdfCommand}" IsVisible="{Binding CanExportPdf}" />
                         <Button Text="Markdown" StyleClass="Small" Command="{Binding ExportMarkdownCommand}" />
                         <Button Text="HTML" StyleClass="Small" Command="{Binding ExportHtmlCommand}" />
                         <Button Text="Copy" StyleClass="Small" Command="{Binding CopyMarkdownCommand}" />

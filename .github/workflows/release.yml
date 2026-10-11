@@ -21,6 +21,10 @@ on:
         description: Mark it as the latest release
         type: boolean
         default: true
+      macos:
+        description: Build the macOS app (2.0.0 crashes on macOS at launch, so it ships for Windows only)
+        type: boolean
+        default: true
   pull_request:
     paths:
       - .github/workflows/release.yml
@@ -91,9 +95,9 @@ jobs:
           -p:WindowsAppSDKSelfContained=true -p:SelfContained=true
           -o "publish/AI Database Analyzer"
 
+      # A build that cannot stay open for 20 seconds is never published.
       - name: Start the app once
         shell: pwsh
-        continue-on-error: true
         run: |
           $app = Start-Process "publish/AI Database Analyzer/AIDatabaseAnalyzer.exe" -PassThru
           Start-Sleep -Seconds 20
@@ -117,6 +121,7 @@ jobs:
   macos:
     name: macOS (Apple silicon and Intel)
     needs: prepare
+    if: github.event_name != 'workflow_dispatch' || inputs.macos
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -167,7 +172,6 @@ jobs:
           ls -l dist
 
       - name: Start the app once
-        continue-on-error: true
         run: |
           "staging/AI Database Analyzer.app/Contents/MacOS/AIDatabaseAnalyzer" & pid=$!
           sleep 20
@@ -183,7 +187,8 @@ jobs:
 
   publish:
     name: Publish the release
-    if: github.event_name == 'workflow_dispatch'
+    # Runs when the macOS build was skipped on purpose, never when a build failed.
+    if: ${{ !cancelled() && !failure() && github.event_name == 'workflow_dispatch' }}
     needs: [prepare, windows, macos]
     runs-on: ubuntu-latest
     permissions:
