@@ -218,3 +218,67 @@ public sealed class SnapshotStoreTests : IDisposable
         Assert.Single(await store.ListAsync());
     }
 }
+
+public class PageRenderingTests
+{
+    private static Func<string, string?> Linker(DatabaseSchema schema) =>
+        token => SchemaLinks.ResolveTable(token, schema) is { } table ? "aida://table/" + Uri.EscapeDataString(table) : null;
+
+    [Fact]
+    public void Chat_page_escapes_questions_and_links_tables_in_answers()
+    {
+        var schema = TestData.FlawedShop();
+        var entries = new[]
+        {
+            new ChatEntry(AIDatabaseAnalyzer.Services.Llm.LlmRole.User, "<script>alert(1)</script> about orders"),
+            new ChatEntry(AIDatabaseAnalyzer.Services.Llm.LlmRole.Assistant, "Index `orders.customer_id`:\n\n```sql\nCREATE INDEX ix ON orders (customer_id);\n```")
+        };
+
+        string html = ChatRenderer.ToHtml(entries, "dark", Linker(schema), thinking: true, "Thinking…");
+
+        Assert.DoesNotContain("<script>alert(1)</script>", html);
+        Assert.Contains("aida://table/orders", html);
+        Assert.Contains("CREATE INDEX ix ON orders", html);
+        Assert.Contains("class=\"bubble typing\"", html);
+        Assert.Contains("data-theme=\"dark\"", html);
+    }
+
+    [Fact]
+    public void Exported_reports_have_no_app_links_but_the_in_app_viewer_does()
+    {
+        var schema = TestData.FlawedShop();
+        var report = new AnalysisReport { DatabaseName = "shop" };
+        report.Findings.Add(new ReportFinding { Severity = "High", Title = "No PK", Objects = { "audit_log" } });
+        report.Sections.Add(new ReportSection { Title = "S", Content = "See `orders`.\n\n```sql\nSELECT 1;\n```" });
+
+        string exported = ReportRenderer.ToHtml(report);
+        string inApp = ReportRenderer.ToHtml(report, "auto", Linker(schema), scrollToSection: 0);
+
+        Assert.DoesNotContain("aida://", exported);
+        Assert.Contains("href=\"aida://table/orders\"", inApp);
+        Assert.Contains("href=\"aida://table/audit_log\"", inApp);
+        Assert.Contains("getElementById('s1')", inApp);
+    }
+
+    [Fact]
+    public void Chat_system_prompt_carries_the_schema_and_the_dialect()
+    {
+        var schema = TestData.FlawedShop();
+        schema.Engine = DbEngine.Oracle;
+        string prompt = AIDatabaseAnalyzer.Services.Llm.PromptBuilder.ChatSystemPrompt(schema, SchemaSerializer.ToJson(schema, false), SchemaInsightsService.Analyze(schema));
+
+        Assert.Contains("<schema>", prompt);
+        Assert.Contains("Oracle (SQL and PL/SQL)", prompt);
+        Assert.Contains("Automated checks", prompt);
+        Assert.Contains("language of the user's question", prompt);
+    }
+
+    [Fact]
+    public void Markdown_pages_render_lists_and_links()
+    {
+        string html = MarkdownPage.ToHtml("## Changed\n- `customers` grew\n- <b>raw</b>", "light", Linker(TestData.FlawedShop()));
+        Assert.Contains("<h2>Changed</h2>", html);
+        Assert.Contains("aida://table/customers", html);
+        Assert.DoesNotContain("<b>raw</b>", html);
+    }
+}

@@ -56,7 +56,7 @@ pre.sql{margin:8px 0 4px;padding:10px 12px;border-radius:10px;background:var(--c
 .row input{flex:1;min-width:0;border:1px solid var(--line);background:var(--glass-strong);color:var(--text);border-radius:10px;padding:6px 10px;font:inherit;outline:none}
 .row input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 #legend .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
-#banner{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;padding:8px 10px 8px 16px;display:none;align-items:center;gap:12px;font-weight:600;max-width:min(760px,70%)}
+#banner{position:absolute;left:50%;transform:translateX(-50%);bottom:64px;padding:8px 10px 8px 16px;display:none;align-items:center;gap:12px;font-weight:600;max-width:min(760px,70%)}
 #banner span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
@@ -118,7 +118,10 @@ if (!RULES.length) document.getElementById('bHealth').style.display = 'none';
 /** Sends a command to the hosting app (only inside the app). */
 function host(cmd, arg) {
   if (!EMBEDDED) return false;
-  window.location.href = 'aida://' + cmd + '/' + encodeURIComponent(arg == null ? '' : String(arg));
+  // an anchor click is reported to the app as a link navigation on every platform's WebView
+  var a = document.createElement('a');
+  a.href = 'aida://' + cmd + '/' + encodeURIComponent(arg == null ? '' : String(arg));
+  document.body.appendChild(a); a.click(); a.remove();
   return true;
 }
 function copyText(text) {

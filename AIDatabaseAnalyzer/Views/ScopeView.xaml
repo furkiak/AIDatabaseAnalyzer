@@ -17,7 +17,7 @@
             <!-- ============================ Database ============================ -->
             <Border StyleClass="Glass">
                 <VerticalStackLayout Spacing="12">
-                    <Label Text="Target database" StyleClass="Title" />
+                    <Label Text="{Binding DatabaseLabel}" StyleClass="Title" />
                     <CollectionView ItemsSource="{Binding Databases}"
                                     SelectionMode="Single"
                                     SelectedItem="{Binding SelectedDatabase, Mode=TwoWay}"

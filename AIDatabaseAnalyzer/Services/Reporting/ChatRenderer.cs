@@ -54,7 +54,7 @@ public static class ChatRenderer
         <style>
         {{VARS}}
         *{box-sizing:border-box}
-        html,body{margin:0;background:transparent}
+        html,body{margin:0;background:var(--surface);min-height:100%}
         body{font:14px/1.6 {{FONT}};color:var(--text);padding:18px 18px 8px;-webkit-font-smoothing:antialiased}
         .msg{display:flex;margin:0 0 14px}
         .msg.user{justify-content:flex-end}
@@ -90,7 +90,8 @@ public static class ChatRenderer
         (function(){
           document.querySelectorAll('.md pre').forEach(function(pre){
             var b=document.createElement('button');b.className='copy';b.textContent='Copy';
-            b.onclick=function(){var t=pre.querySelector('code');location.href='aida://copy/'+encodeURIComponent(t?t.innerText:pre.innerText);b.textContent='Copied';};
+            b.onclick=function(){var t=pre.querySelector('code'),a=document.createElement('a');
+              a.href='aida://copy/'+encodeURIComponent(t?t.innerText:pre.innerText);document.body.appendChild(a);a.click();a.remove();b.textContent='Copied';};
             pre.appendChild(b);
           });
           window.scrollTo(0, document.body.scrollHeight);

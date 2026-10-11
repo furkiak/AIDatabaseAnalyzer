@@ -22,7 +22,7 @@ public static class MarkdownPage
         <style>
         {{VARS}}
         *{box-sizing:border-box}
-        html,body{margin:0;background:transparent}
+        html,body{margin:0;background:var(--surface);min-height:100%}
         body{font:14px/1.6 {{FONT}};color:var(--text);padding:20px 24px;-webkit-font-smoothing:antialiased}
         h2{font-size:16px;margin:22px 0 8px;letter-spacing:-.01em} h3{font-size:14px;margin:14px 0 6px}
         p{margin:0 0 10px} ul{padding-left:20px;margin:6px 0 10px} li{margin:3px 0}

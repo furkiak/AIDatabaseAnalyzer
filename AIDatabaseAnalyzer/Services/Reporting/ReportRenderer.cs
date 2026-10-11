@@ -56,7 +56,8 @@ public static class ReportRenderer
     /// <summary>In-app helpers: copy buttons on code blocks (through the host) and the initial scroll position.</summary>
     private static string AppScript(int? section) =>
         "<script>(function(){document.querySelectorAll('.md pre').forEach(function(pre){var b=document.createElement('button');" +
-        "b.className='copy';b.textContent='Copy';b.onclick=function(){location.href='aida://copy/'+encodeURIComponent(pre.innerText.replace(/Copy$/,''));b.textContent='Copied';};pre.appendChild(b);});" +
+        "b.className='copy';b.textContent='Copy';b.onclick=function(){var c=pre.querySelector('code'),a=document.createElement('a');" +
+        "a.href='aida://copy/'+encodeURIComponent(c?c.innerText:pre.innerText);document.body.appendChild(a);a.click();a.remove();b.textContent='Copied';};pre.appendChild(b);});" +
         (section is { } index ? $"var s=document.getElementById('s{index + 1}');if(s)s.scrollIntoView();" : "") +
         "})();</script>";
 
