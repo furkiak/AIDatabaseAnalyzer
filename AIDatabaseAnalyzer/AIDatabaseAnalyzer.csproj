@@ -32,8 +32,8 @@
 		<ApplicationId>com.companyname.aidatabaseanalyzer</ApplicationId>
 
 		<!-- Versions -->
-		<ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion>
-		<ApplicationVersion>2</ApplicationVersion>
+		<ApplicationDisplayVersion>2.1.0</ApplicationDisplayVersion>
+		<ApplicationVersion>3</ApplicationVersion>
 
 		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 		<WindowsPackageType>None</WindowsPackageType>

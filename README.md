@@ -1,13 +1,14 @@
 <div align="center">
 
-<img src="SSD.png" alt="AI Database Analyzer" width="860">
+<img src="docs/images/hero.png" alt="AI Database Analyzer" width="860">
 
 <br><br>
 
+[![Release](https://img.shields.io/github/v/release/furkiak/AIDatabaseAnalyzer?style=for-the-badge&color=5E5CE6&label=release)](https://github.com/furkiak/AIDatabaseAnalyzer/releases/latest)
 ![.NET MAUI](https://img.shields.io/badge/.NET%20MAUI-9.0-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
 ![Platforms](https://img.shields.io/badge/macOS%20%7C%20Windows-desktop-5E5CE6?style=for-the-badge)
 ![Tests](https://img.shields.io/badge/core%20tests-98%20passing-30B455?style=for-the-badge)
-![License](https://img.shields.io/badge/license-MIT-0A84FF?style=for-the-badge)
+[![License](https://img.shields.io/badge/license-MIT-0A84FF?style=for-the-badge)](LICENSE)
 
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-CC2927?style=flat-square&logo=microsoft-sql-server&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white)
@@ -25,6 +26,8 @@
 # AI Database Analyzer
 
 **An AI-assisted senior DBA for your desktop — instant schema health checks, an interactive ER diagram that shows where the problems are, a schema chat and expert-level reports.**
+
+**[⬇️ Download for Windows & macOS](https://github.com/furkiak/AIDatabaseAnalyzer/releases/latest)**
 
 [English](#-english) · [Türkçe](#-türkçe)
 
@@ -171,15 +174,23 @@ Every answer is written for your engine's SQL dialect, refers to objects in back
 
 A read-only account is enough everywhere.
 
+## Download
+
+The [latest release](https://github.com/furkiak/AIDatabaseAnalyzer/releases/latest) has ready-to-run apps — no installer, no .NET:
+
+| File | System | How to start |
+|---|---|---|
+| `AIDatabaseAnalyzer-<version>-windows-x64.zip` | Windows 10 (1809+) / 11, x64 | Extract it and run `AIDatabaseAnalyzer.exe` |
+| `AIDatabaseAnalyzer-<version>-macos.zip` | macOS 12+, Apple silicon and Intel | Unzip it and move *AI Database Analyzer* to **Applications** |
+
+The apps are not signed with a paid developer certificate, so the first launch shows a warning. On Windows, choose **More info → Run anyway**. On macOS, choose **System Settings → Privacy & Security → Open Anyway**, or run `xattr -dr com.apple.quarantine "/Applications/AI Database Analyzer.app"`.
+
 ## Getting started
 
-**Requirements**
+**Build from source** (optional — you only need this to change the code)
 
 * [.NET 9 SDK](https://dotnet.microsoft.com/download) and the MAUI workload: `dotnet workload install maui`
 * **Windows 10 (1809) / 11**, or **macOS** with Xcode (the app runs through Mac Catalyst)
-* An AI provider: a local [Ollama](https://ollama.com/download) (`ollama pull qwen2.5-coder`) or an API key for Claude, OpenAI, Gemini or DeepSeek
-
-**Run**
 
 ```bash
 # Windows
@@ -191,12 +202,12 @@ dotnet build AIDatabaseAnalyzer -f net9.0-maccatalyst -t:Run
 
 Or open `AIDatabaseAnalyzer.sln` in Visual Studio / Rider and press *Run*.
 
-**Configure the AI** (Settings page — every provider keeps its own settings)
+**Configure the AI** on the Settings page — every provider keeps its own settings. You need a local [Ollama](https://ollama.com/download) (`ollama pull qwen2.5-coder`) or an API key for Claude, OpenAI, Gemini or DeepSeek.
 
 | Provider | Default model | What to do |
 |---|---|---|
 | **Ollama** (local) | `qwen2.5-coder` | Start Ollama, press *Test connection*, pick an installed model. Raise *Context* if the schema is large (needs more RAM). |
-| **Anthropic Claude** | `claude-opus-5-5` | Paste an [Anthropic API key](https://console.anthropic.com/settings/keys). The schema is prompt-cached; if a security topic is declined, the API's default fallback model answers it. |
+| **Anthropic Claude** | `claude-opus-5-5` | Paste an [Anthropic API key](https://platform.claude.com/settings/keys). The schema is prompt-cached; if a security topic is declined, the API's default fallback model answers it. |
 | **OpenAI** | `gpt-5-mini` | Paste an [OpenAI API key](https://platform.openai.com/api-keys) and pick a model from the live list. |
 | **Google Gemini** | `gemini-3.1-flash-lite-preview` | Paste a free [AI Studio key](https://aistudio.google.com/apikey). |
 | **DeepSeek** | `deepseek-chat` | Paste a [DeepSeek API key](https://platform.deepseek.com/api_keys); `deepseek-reasoner` for deeper answers. |
@@ -241,7 +252,7 @@ tests/AIDatabaseAnalyzer.Tests   98 tests for the platform-independent core
 dotnet test tests/AIDatabaseAnalyzer.Tests      # core logic: no MAUI workload needed, runs on any OS
 ```
 
-The tests include an end-to-end extraction from a real SQLite file, the provider protocols (Claude through the SDK, OpenAI, DeepSeek, Gemini, Ollama) against a fake HTTP handler, the parallel runner, schema diffs and snapshots. GitHub Actions (`.github/workflows/ci.yml`) runs them on Linux and builds the Windows app on every push.
+The tests include an end-to-end extraction from a real SQLite file, the provider protocols (Claude through the SDK, OpenAI, DeepSeek, Gemini, Ollama) against a fake HTTP handler, the parallel runner, schema diffs and snapshots. GitHub Actions (`.github/workflows/ci.yml`) runs them on Linux and builds the Windows app on every push. Releases are built by `.github/workflows/release.yml` (*Actions → Release → Run workflow*) from the notes in `docs/releases/`.
 
 ## Good to know
 
@@ -254,7 +265,7 @@ The tests include an end-to-end extraction from a real SQLite file, the provider
 
 [.NET MAUI](https://github.com/dotnet/maui) · [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) · [Anthropic .NET SDK](https://github.com/anthropics/anthropic-sdk-csharp) · [QuestPDF](https://www.questpdf.com) · [Npgsql](https://www.npgsql.org) · [MySqlConnector](https://mysqlconnector.net) · [Microsoft.Data.SqlClient](https://github.com/dotnet/SqlClient) · [Microsoft.Data.Sqlite](https://github.com/dotnet/efcore) · [Oracle ODP.NET Core](https://www.nuget.org/packages/Oracle.ManagedDataAccess.Core) · DejaVu Sans Mono (Bitstream Vera licence, bundled for PDF code blocks) · sidebar icons drawn after the [Feather](https://feathericons.com) icon set (MIT).
 
-Released under the [MIT License](AIDatabaseAnalyzer/LICENSE).
+Released under the [MIT License](LICENSE).
 
 ---
 
@@ -391,15 +402,23 @@ Her cevap motorunuzun SQL lehçesinde yazılır, nesnelere ters tırnak içinde 
 
 Her motorda salt okunur bir hesap yeterlidir.
 
+## İndir
+
+[Son sürümde](https://github.com/furkiak/AIDatabaseAnalyzer/releases/latest) hemen çalışan uygulamalar var — kurulum ya da .NET gerekmez:
+
+| Dosya | Sistem | Nasıl açılır |
+|---|---|---|
+| `AIDatabaseAnalyzer-<sürüm>-windows-x64.zip` | Windows 10 (1809+) / 11, x64 | Zip'i çıkarıp `AIDatabaseAnalyzer.exe`'yi çalıştırın |
+| `AIDatabaseAnalyzer-<sürüm>-macos.zip` | macOS 12+, Apple silicon ve Intel | Zip'i açıp *AI Database Analyzer*'ı **Uygulamalar** klasörüne taşıyın |
+
+Uygulamalar ücretli bir geliştirici sertifikasıyla imzalanmadığı için ilk açılışta uyarı çıkar. Windows'ta **Ek bilgi → Yine de çalıştır** deyin. macOS'ta **Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç** deyin ya da `xattr -dr com.apple.quarantine "/Applications/AI Database Analyzer.app"` komutunu çalıştırın.
+
 ## Başlarken
 
-**Gereksinimler**
+**Kaynaktan derleme** (isteğe bağlı — yalnızca kodu değiştirmek için gerekir)
 
 * [.NET 9 SDK](https://dotnet.microsoft.com/download) ve MAUI iş yükü: `dotnet workload install maui`
 * **Windows 10 (1809) / 11** veya Xcode kurulu **macOS** (uygulama Mac Catalyst ile çalışır)
-* Bir yapay zekâ sağlayıcısı: yerel [Ollama](https://ollama.com/download) (`ollama pull qwen2.5-coder`) ya da Claude, OpenAI, Gemini veya DeepSeek API anahtarı
-
-**Çalıştırma**
 
 ```bash
 # Windows
@@ -411,12 +430,12 @@ dotnet build AIDatabaseAnalyzer -f net9.0-maccatalyst -t:Run
 
 Ya da `AIDatabaseAnalyzer.sln` dosyasını Visual Studio / Rider ile açıp *Run*'a basın.
 
-**Yapay zekâyı yapılandırma** (Ayarlar sayfası — her sağlayıcı kendi ayarlarını saklar)
+**Yapay zekâyı yapılandırın:** Ayarlar sayfasında her sağlayıcı kendi ayarlarını saklar. Yerel bir [Ollama](https://ollama.com/download) (`ollama pull qwen2.5-coder`) ya da Claude, OpenAI, Gemini veya DeepSeek API anahtarı gerekir.
 
 | Sağlayıcı | Varsayılan model | Yapılacak |
 |---|---|---|
 | **Ollama** (yerel) | `qwen2.5-coder` | Ollama'yı başlatın, *Test connection*'a basın, kurulu bir model seçin. Şema büyükse *Context* değerini artırın (daha fazla RAM gerekir). |
-| **Anthropic Claude** | `claude-opus-5-5` | Bir [Anthropic API anahtarı](https://console.anthropic.com/settings/keys) yapıştırın. Şema prompt önbelleğine alınır; bir güvenlik konusu reddedilirse API'nin varsayılan yedek modeli yanıtlar. |
+| **Anthropic Claude** | `claude-opus-5-5` | Bir [Anthropic API anahtarı](https://platform.claude.com/settings/keys) yapıştırın. Şema prompt önbelleğine alınır; bir güvenlik konusu reddedilirse API'nin varsayılan yedek modeli yanıtlar. |
 | **OpenAI** | `gpt-5-mini` | Bir [OpenAI API anahtarı](https://platform.openai.com/api-keys) yapıştırıp canlı listeden model seçin. |
 | **Google Gemini** | `gemini-3.1-flash-lite-preview` | Ücretsiz bir [AI Studio anahtarı](https://aistudio.google.com/apikey) yapıştırın. |
 | **DeepSeek** | `deepseek-chat` | Bir [DeepSeek API anahtarı](https://platform.deepseek.com/api_keys) yapıştırın; daha derin cevaplar için `deepseek-reasoner`. |
@@ -461,7 +480,7 @@ tests/AIDatabaseAnalyzer.Tests   platformdan bağımsız çekirdek için 98 test
 dotnet test tests/AIDatabaseAnalyzer.Tests      # çekirdek mantık: MAUI iş yükü gerekmez, her işletim sisteminde çalışır
 ```
 
-Testler gerçek bir SQLite dosyasından uçtan uca çıkarımı, sahte bir HTTP işleyicisine karşı sağlayıcı protokollerini (SDK üzerinden Claude, OpenAI, DeepSeek, Gemini, Ollama), paralel yürütücüyü, şema farklarını ve anlık görüntüleri kapsar. GitHub Actions (`.github/workflows/ci.yml`) her push'ta testleri Linux'ta çalıştırır ve Windows uygulamasını derler.
+Testler gerçek bir SQLite dosyasından uçtan uca çıkarımı, sahte bir HTTP işleyicisine karşı sağlayıcı protokollerini (SDK üzerinden Claude, OpenAI, DeepSeek, Gemini, Ollama), paralel yürütücüyü, şema farklarını ve anlık görüntüleri kapsar. GitHub Actions (`.github/workflows/ci.yml`) her push'ta testleri Linux'ta çalıştırır ve Windows uygulamasını derler. Sürümler `.github/workflows/release.yml` ile (*Actions → Release → Run workflow*), `docs/releases/` içindeki notlardan oluşturulur.
 
 ## Bilmeniz gerekenler
 
@@ -474,4 +493,4 @@ Testler gerçek bir SQLite dosyasından uçtan uca çıkarımı, sahte bir HTTP 
 
 [.NET MAUI](https://github.com/dotnet/maui) · [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) · [Anthropic .NET SDK](https://github.com/anthropics/anthropic-sdk-csharp) · [QuestPDF](https://www.questpdf.com) · [Npgsql](https://www.npgsql.org) · [MySqlConnector](https://mysqlconnector.net) · [Microsoft.Data.SqlClient](https://github.com/dotnet/SqlClient) · [Microsoft.Data.Sqlite](https://github.com/dotnet/efcore) · [Oracle ODP.NET Core](https://www.nuget.org/packages/Oracle.ManagedDataAccess.Core) · DejaVu Sans Mono (Bitstream Vera lisansı, PDF kod blokları için pakete dahil) · kenar çubuğu simgeleri [Feather](https://feathericons.com) simge setinden esinlenerek çizildi (MIT).
 
-[MIT Lisansı](AIDatabaseAnalyzer/LICENSE) ile yayımlanmıştır.
+[MIT Lisansı](LICENSE) ile yayımlanmıştır.

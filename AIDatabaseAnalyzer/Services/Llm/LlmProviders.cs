@@ -88,7 +88,7 @@ public static class LlmProviders
             DefaultContextTokens = 1_000_000,
             ApiKeyPlaceholder = "sk-ant-…",
             ModelPlaceholder = "claude-opus-5-5",
-            SignupUrl = "https://console.anthropic.com/settings/keys",
+            SignupUrl = "https://platform.claude.com/settings/keys",
             SignupText = "Create an Anthropic API key",
             PrivacyNote = "Runs in Anthropic's cloud: schema metadata is sent to Claude. The schema is prompt-cached, so every further topic reads it at a fraction of the cost.",
             SuggestedModels = new[] { "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1" }
