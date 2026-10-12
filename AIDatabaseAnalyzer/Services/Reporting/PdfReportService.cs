@@ -12,6 +12,9 @@ namespace AIDatabaseAnalyzer.Services.Reporting;
 
 public interface IPdfReportService
 {
+    /// <summary>False where the PDF engine cannot run; callers offer HTML export instead.</summary>
+    bool IsSupported { get; }
+
     /// <summary>Renders the report into a PDF file on a background thread.</summary>
     Task GenerateAsync(AnalysisReport report, string outputPath, CancellationToken ct = default);
 }
@@ -29,25 +32,37 @@ public sealed class PdfReportService : IPdfReportService
     private const string Muted = "#6B6B76";
     private const string Soft = "#F2F4F8";
 
-    private static readonly object FontLock = new();
+    private static readonly object SetupLock = new();
+    private static bool _configured;
     private static bool _fontsRegistered;
     private readonly Func<Stream?>? _monoFontProvider;
 
     /// <param name="monoFontProvider">Opens the TTF of <see cref="MonoFamily"/>; when absent, code is set in Lato.</param>
-    public PdfReportService(Func<Stream?>? monoFontProvider = null)
-    {
-        _monoFontProvider = monoFontProvider;
-        QuestPDF.Settings.License = LicenseType.Community;
-        // AI answers may contain symbols the font lacks, or a font may be missing on a machine:
-        // never abort the whole report because of that.
-        QuestPDF.Settings.ThrowOnMissingTextGlyphs = false;
-        QuestPDF.Settings.ThrowOnMissingFontFamilies = false;
-    }
+    public PdfReportService(Func<Stream?>? monoFontProvider = null) => _monoFontProvider = monoFontProvider;
 
-    private void EnsureFonts()
+    /// <summary>
+    /// QuestPDF's native engine ships for Windows, Linux and macOS but refuses to start under Mac Catalyst.
+    /// Its settings are therefore only touched when a PDF is made, never while the app starts.
+    /// </summary>
+    public bool IsSupported => !OperatingSystem.IsMacCatalyst();
+
+    private void EnsureReady()
     {
-        lock (FontLock)
+        if (!IsSupported)
+            throw new PlatformNotSupportedException("PDF export is not available on macOS yet. Export the report as HTML and print it to PDF.");
+
+        lock (SetupLock)
         {
+            if (!_configured)
+            {
+                QuestPDF.Settings.License = LicenseType.Community;
+                // AI answers may contain symbols the font lacks, or a font may be missing on a machine:
+                // never abort the whole report because of that.
+                QuestPDF.Settings.ThrowOnMissingTextGlyphs = false;
+                QuestPDF.Settings.ThrowOnMissingFontFamilies = false;
+                _configured = true;
+            }
+
             if (_fontsRegistered || _monoFontProvider is null) return;
             try
             {
@@ -66,7 +81,7 @@ public sealed class PdfReportService : IPdfReportService
         Task.Run(() =>
         {
             ct.ThrowIfCancellationRequested();
-            EnsureFonts();
+            EnsureReady();
             string? dir = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
             Build(report).GeneratePdf(outputPath);
@@ -75,7 +90,7 @@ public sealed class PdfReportService : IPdfReportService
     /// <summary>Renders to memory (used by tests and "export without saving").</summary>
     public byte[] ToBytes(AnalysisReport report)
     {
-        EnsureFonts();
+        EnsureReady();
         return Build(report).GeneratePdf();
     }
 

@@ -258,6 +258,7 @@ The tests include an end-to-end extraction from a real SQLite file, the provider
 
 * Row counts come from catalog statistics, so they are estimates (very fresh or never-analysed tables may show `0`); SQLite tables are counted.
 * The health score is a heuristic to prioritise work — not a certification.
+* PDF export is not available on macOS yet: the PDF engine (QuestPDF) does not run under Mac Catalyst. Export the report as HTML and print it to PDF from your browser.
 * AI answers can be wrong. Review SQL before running it, and always test migrations on a copy — the fix script, too.
 * The built-in QuestPDF is used under its [Community licence](https://www.questpdf.com/license/); check that your organisation qualifies.
 
@@ -486,6 +487,7 @@ Testler gerçek bir SQLite dosyasından uçtan uca çıkarımı, sahte bir HTTP 
 
 * Satır sayıları katalog istatistiklerinden gelir, yani tahmindir (yeni ya da hiç analiz edilmemiş tablolar `0` gösterebilir); SQLite tabloları sayılır.
 * Sağlık puanı işi önceliklendirmek için bir sezgiseldir — sertifika değildir.
+* PDF dışa aktarma macOS'ta henüz yok: PDF motoru (QuestPDF) Mac Catalyst'te çalışmıyor. Raporu HTML olarak dışa aktarıp tarayıcıdan PDF'e yazdırabilirsiniz.
 * Yapay zekâ yanıtları yanlış olabilir. SQL'i çalıştırmadan önce inceleyin, taşımaları — düzeltme betiğini de — her zaman bir kopya üzerinde deneyin.
 * PDF için kullanılan QuestPDF, [Community lisansı](https://www.questpdf.com/license/) ile kullanılır; kurumunuzun koşulları karşıladığını kontrol edin.
 

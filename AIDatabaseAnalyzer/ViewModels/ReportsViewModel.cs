@@ -63,6 +63,7 @@ public partial class ReportsViewModel : ObservableObject
     [ObservableProperty] private bool isLinked;
 
     public bool IsListVisible => !IsViewing;
+    public bool CanExportPdf => _pdf.IsSupported;
     public bool IsEmptyVisible => !HasItems;
 
     [RelayCommand]
