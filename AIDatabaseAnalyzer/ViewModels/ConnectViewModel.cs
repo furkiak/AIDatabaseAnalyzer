@@ -73,6 +73,7 @@ public partial class ConnectViewModel : ObservableObject
     [ObservableProperty] private string userPlaceholder = "sa";
 
     [NotifyCanExecuteChangedFor(nameof(ConnectCommand))]
+    [NotifyCanExecuteChangedFor(nameof(OpenDemoCommand))]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
     [ObservableProperty] private bool isBusy;
 
@@ -138,6 +139,27 @@ public partial class ConnectViewModel : ObservableObject
         {
             ErrorMessage = "The file could not be opened: " + Describe(ex);
         }
+    }
+
+    /// <summary>Opens the bundled sample shop database, so the app can be tried without any server.</summary>
+    [RelayCommand(CanExecute = nameof(IsNotBusy))]
+    private async Task OpenDemoAsync()
+    {
+        ErrorMessage = null;
+        try
+        {
+            string path = await DemoDatabase.EnsureAsync(Path.Combine(FileSystem.AppDataDirectory, "demo"));
+            SelectedProfile = null;
+            Engine = DbEngine.Sqlite;
+            Server = path;
+            ProfileName = "";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "The demo database could not be created: " + Describe(ex);
+            return;
+        }
+        await ConnectAsync();
     }
 
     private async Task LoadProfileAsync(SavedConnection profile)

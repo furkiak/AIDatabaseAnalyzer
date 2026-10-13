@@ -141,36 +141,46 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- ============================ Saved connections ============================ -->
-                <Border Grid.Column="1" StyleClass="Glass" Padding="18" VerticalOptions="Start">
-                    <VerticalStackLayout Spacing="12">
-                        <Label Text="Saved connections" StyleClass="Headline" />
+                <!-- ============================ Demo + saved connections ============================ -->
+                <VerticalStackLayout Grid.Column="1" Spacing="20" VerticalOptions="Start">
+                    <Border StyleClass="Glass" Padding="18">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="No database at hand?" StyleClass="Headline" />
+                            <Label Text="Open a sample shop database with typical design flaws and try insights, the diagram and the AI analysis right away." StyleClass="Caption" />
+                            <Button Text="Open the demo database" StyleClass="Small" Command="{Binding OpenDemoCommand}" HorizontalOptions="Start" />
+                        </VerticalStackLayout>
+                    </Border>
 
-                        <CollectionView ItemsSource="{Binding Profiles}"
-                                        SelectionMode="Single"
-                                        SelectedItem="{Binding SelectedProfile, Mode=TwoWay}"
-                                        HeightRequest="320">
-                            <CollectionView.EmptyView>
-                                <VerticalStackLayout Padding="6,24" Spacing="6">
-                                    <Label Text="Nothing saved yet" StyleClass="Headline" HorizontalTextAlignment="Center" />
-                                    <Label Text="Fill in the form and press Save to keep a connection here." StyleClass="Caption" HorizontalTextAlignment="Center" />
-                                </VerticalStackLayout>
-                            </CollectionView.EmptyView>
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="models:SavedConnection">
-                                    <Border StyleClass="Row" Margin="0,2">
-                                        <VerticalStackLayout Spacing="2">
-                                            <Label Text="{Binding Name}" StyleClass="Headline" LineBreakMode="TailTruncation" />
-                                            <Label Text="{Binding Summary}" StyleClass="Caption" LineBreakMode="TailTruncation" />
-                                        </VerticalStackLayout>
-                                    </Border>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
+                    <Border StyleClass="Glass" Padding="18">
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="Saved connections" StyleClass="Headline" />
 
-                        <Button Text="Delete selected" StyleClass="Danger,Small" Command="{Binding DeleteProfileCommand}" HorizontalOptions="Start" />
-                    </VerticalStackLayout>
-                </Border>
+                            <CollectionView ItemsSource="{Binding Profiles}"
+                                            SelectionMode="Single"
+                                            SelectedItem="{Binding SelectedProfile, Mode=TwoWay}"
+                                            HeightRequest="320">
+                                <CollectionView.EmptyView>
+                                    <VerticalStackLayout Padding="6,24" Spacing="6">
+                                        <Label Text="Nothing saved yet" StyleClass="Headline" HorizontalTextAlignment="Center" />
+                                        <Label Text="Fill in the form and press Save to keep a connection here." StyleClass="Caption" HorizontalTextAlignment="Center" />
+                                    </VerticalStackLayout>
+                                </CollectionView.EmptyView>
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="models:SavedConnection">
+                                        <Border StyleClass="Row" Margin="0,2">
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="{Binding Name}" StyleClass="Headline" LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding Summary}" StyleClass="Caption" LineBreakMode="TailTruncation" />
+                                            </VerticalStackLayout>
+                                        </Border>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+
+                            <Button Text="Delete selected" StyleClass="Danger,Small" Command="{Binding DeleteProfileCommand}" HorizontalOptions="Start" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
             </Grid>
         </VerticalStackLayout>
     </ScrollView>

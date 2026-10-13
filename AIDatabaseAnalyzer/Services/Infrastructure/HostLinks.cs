@@ -32,13 +32,18 @@ public static class HostLinks
                 return;
             }
 
-            if (e.Url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-                || e.Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-                || e.Url.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
+            if (IsExternalLink(e.Url))
             {
+                // A malformed address in a report must not throw inside the navigation event.
                 e.Cancel = true;
-                _ = Launcher.Default.TryOpenAsync(new Uri(e.Url));
+                if (Uri.TryCreate(e.Url, UriKind.Absolute, out var uri))
+                    _ = Launcher.Default.TryOpenAsync(uri);
             }
         };
     }
+
+    public static bool IsExternalLink(string url) =>
+        url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+        || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+        || url.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase);
 }

@@ -270,11 +270,11 @@ public class LlmServiceTests
     }
 
     [Fact]
-    public void Missing_keys_are_reported_before_any_request()
+    public async Task Missing_keys_are_reported_before_any_request()
     {
         var settings = new LlmSettings { Provider = LlmProvider.OpenAI };
-        var ex = Assert.ThrowsAsync<LlmException>(() => Create().service.CompleteAsync(settings, Ask()));
-        Assert.Contains("API key", ex.Result.Message);
+        var ex = await Assert.ThrowsAsync<LlmException>(() => Create().service.CompleteAsync(settings, Ask()));
+        Assert.Contains("API key", ex.Message);
     }
 
     [Theory]

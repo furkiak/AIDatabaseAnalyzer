@@ -7,7 +7,7 @@
 [![Release](https://img.shields.io/github/v/release/furkiak/AIDatabaseAnalyzer?style=for-the-badge&color=5E5CE6&label=release)](https://github.com/furkiak/AIDatabaseAnalyzer/releases/latest)
 ![.NET MAUI](https://img.shields.io/badge/.NET%20MAUI-9.0-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
 ![Platforms](https://img.shields.io/badge/macOS%20%7C%20Windows-desktop-5E5CE6?style=for-the-badge)
-![Tests](https://img.shields.io/badge/core%20tests-98%20passing-30B455?style=for-the-badge)
+![Tests](https://img.shields.io/badge/core%20tests-101%20passing-30B455?style=for-the-badge)
 [![License](https://img.shields.io/badge/license-MIT-0A84FF?style=for-the-badge)](LICENSE)
 
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-CC2927?style=flat-square&logo=microsoft-sql-server&logoColor=white)
@@ -94,7 +94,7 @@ The interface follows a *Liquid Glass* design language: translucent glass surfac
                    └──────────────▶ Snapshots (versions, drift, health trend)
 ```
 
-1. **Connect** — pick an engine and sign in (Windows authentication on Windows), enter an Oracle service name, or browse to a SQLite file. Save connections; passwords go to the keychain.
+1. **Connect** — pick an engine and sign in (Windows authentication on Windows), enter an Oracle service name, or browse to a SQLite file. Save connections; passwords go to the keychain. No database at hand? **Open the demo database**: a sample shop with typical design flaws, ready in one click.
 2. **Scope** — choose the database (an Oracle *schema*), the tables and what to read: indexes, constraints, views, triggers, routines, **SQL source code** and optional **sample rows** (random for tables up to 50 k rows, the first rows for larger ones — never a full-table sort).
 3. **Insights** — health score, hot spots, findings (each with *Show in diagram* and *Ask AI*), the fix script, drift since the last snapshot, the ER diagram, JSON and data-dictionary exports.
 4. **AI Analysis** — start from a preset, filter by category, add your own prompts (they are remembered), choose English or Türkçe and run. Topics that need data you did not extract (sample rows, code) are marked.
@@ -185,6 +185,8 @@ The [latest release](https://github.com/furkiak/AIDatabaseAnalyzer/releases/late
 
 The apps are not signed with a paid developer certificate, so the first launch shows a warning. On Windows, choose **More info → Run anyway**. On macOS, choose **System Settings → Privacy & Security → Open Anyway**, or run `xattr -dr com.apple.quarantine "/Applications/AI Database Analyzer.app"`.
 
+**First run:** press **Open the demo database** on the Connect page. The insights, the ER diagram and the snapshots work right away, no server and no AI key needed; add a key or start Ollama when you want the AI analysis.
+
 ## Getting started
 
 **Build from source** (optional — you only need this to change the code)
@@ -237,7 +239,7 @@ AIDatabaseAnalyzer/
 │  ├─ Styles/              design tokens (Colors.xaml) and Liquid-Glass styles (Styles.xaml)
 │  └─ Web/diagram.html     the ER diagram renderer (no dependencies)
 └─ Platforms/              Windows · Mac Catalyst
-tests/AIDatabaseAnalyzer.Tests   98 tests for the platform-independent core
+tests/AIDatabaseAnalyzer.Tests   101 tests for the platform-independent core
 ```
 
 * **Screens talk through one `WorkspaceSession`** — “show this table in the diagram”, “ask the AI about this finding” and “open this report section” are session requests, so every screen can link to every other one.
@@ -323,7 +325,7 @@ Arayüz *Liquid Glass* tasarım diliyle hazırlandı: yumuşak bir aurora arka p
                    └──────────────▶ Anlık görüntüler (sürümler, değişim, sağlık trendi)
 ```
 
-1. **Bağlan** — motoru seçip giriş yapın (Windows'ta Windows kimlik doğrulaması), Oracle için servis adını girin ya da bir SQLite dosyası seçin. Bağlantıları kaydedin; parolalar anahtar zincirine gider.
+1. **Bağlan** — motoru seçip giriş yapın (Windows'ta Windows kimlik doğrulaması), Oracle için servis adını girin ya da bir SQLite dosyası seçin. Bağlantıları kaydedin; parolalar anahtar zincirine gider. Elinizde veritabanı yok mu? **Demo veritabanını açın**: tipik tasarım hataları olan örnek bir mağaza, tek tıkla hazır.
 2. **Kapsam** — veritabanını (Oracle'da *şemayı*), tabloları ve neyin okunacağını seçin: indeksler, kısıtlar, view'lar, trigger'lar, rutinler, **SQL kaynak kodu** ve isteğe bağlı **örnek satırlar** (50 bin satıra kadar rastgele, daha büyüklerde ilk satırlar — asla tüm tabloyu sıralamaz).
 3. **Insights** — sağlık puanı, sıcak noktalar, bulgular (her birinde *Diyagramda göster* ve *AI'a Sor*), düzeltme betiği, son anlık görüntüden bu yana değişim, ER diyagramı, JSON ve veri sözlüğü dışa aktarımı.
 4. **AI Analizi** — bir hazır setle başlayın, kategoriye göre süzün, kendi prompt'larınızı ekleyin (hatırlanır), İngilizce ya da Türkçe seçip çalıştırın. Çıkarılmamış veriye (örnek satır, kod) ihtiyaç duyan konular işaretlenir.
@@ -414,6 +416,8 @@ Her motorda salt okunur bir hesap yeterlidir.
 
 Uygulamalar ücretli bir geliştirici sertifikasıyla imzalanmadığı için ilk açılışta uyarı çıkar. Windows'ta **Ek bilgi → Yine de çalıştır** deyin. macOS'ta **Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç** deyin ya da `xattr -dr com.apple.quarantine "/Applications/AI Database Analyzer.app"` komutunu çalıştırın.
 
+**İlk açılış:** Bağlan sayfasında **Open the demo database** düğmesine basın. Insights, ER diyagramı ve anlık görüntüler hemen çalışır; sunucu ya da yapay zekâ anahtarı gerekmez. Yapay zekâ analizi için bir anahtar ekleyin ya da Ollama'yı başlatın.
+
 ## Başlarken
 
 **Kaynaktan derleme** (isteğe bağlı — yalnızca kodu değiştirmek için gerekir)
@@ -466,7 +470,7 @@ AIDatabaseAnalyzer/
 │  ├─ Styles/              tasarım belirteçleri (Colors.xaml) ve Liquid-Glass stilleri (Styles.xaml)
 │  └─ Web/diagram.html     ER diyagram çizicisi (bağımlılıksız)
 └─ Platforms/              Windows · Mac Catalyst
-tests/AIDatabaseAnalyzer.Tests   platformdan bağımsız çekirdek için 98 test
+tests/AIDatabaseAnalyzer.Tests   platformdan bağımsız çekirdek için 101 test
 ```
 
 * **Ekranlar tek bir `WorkspaceSession` üzerinden konuşur** — “bu tabloyu diyagramda göster”, “bu bulguyu yapay zekâya sor”, “bu rapor bölümünü aç” birer oturum isteğidir; böylece her ekran diğerine bağlanabilir.
